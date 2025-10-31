@@ -1,0 +1,297 @@
+from stats_db import init_db, SessionLocal
+from models import User
+
+# 1️⃣ Initialize tables (if not already)
+init_db()
+
+# 2️⃣ Open a session
+db = SessionLocal()
+
+# 3️⃣ Add a new user
+new_user = User(name="Alice", age=25)
+db.add(new_user)
+db.commit()
+
+# 4️⃣ Query users
+users = db.query(User).all()
+for u in users:
+    print(u.id, u.name, u.age)
+
+db.close()
+
+
+
+####
+
+1. Get all workouts for a specific user
+user_id = 1
+workouts = db.query(Workout).filter(Workout.user_id == user_id).all()
+
+for w in workouts:
+    print(w.exercise, w.sets, w.reps, w.weight, w.created_at)
+
+2. Get all Bench Press workouts
+bench = db.query(Workout).filter(Workout.exercise == "Bench Press").all()
+
+for w in bench:
+    print(f"{w.reps} reps of {w.weight}kg on {w.created_at}")
+
+3. Count total workouts for a user
+from sqlalchemy import func
+
+count = db.query(func.count(Workout.id)).filter(Workout.user_id == 1).scalar()
+print("Total workouts:", count)
+
+4. Get the heaviest weight for each exercise
+from sqlalchemy import func
+
+heaviest = (
+    db.query(Workout.exercise, func.max(Workout.weight))
+    .group_by(Workout.exercise)
+    .all()
+)
+
+for exercise, max_weight in heaviest:
+    print(exercise, "→", max_weight, "kg")
+
+5. Group workouts by day
+from sqlalchemy import func
+
+daily = (
+    db.query(func.date(Workout.created_at), func.count(Workout.id))
+    .group_by(func.date(Workout.created_at))
+    .all()
+)
+
+for day, count in daily:
+    print(day, "→", count, "workouts")
+
+6. Find personal record (max weight) for a specific user
+max_bench = (
+    db.query(func.max(Workout.weight))
+    .filter(Workout.user_id == 1, Workout.exercise == "Bench Press")
+    .scalar()
+)
+
+print("Max Bench Press:", max_bench, "kg")
+
+
+
+
+###
+
+
+
+
+
+
+
+
+
+
+
+You wrote:
+
+storage = MemoryStorage()
+stats_router.storage = storage
+
+
+Actually, storage is usually passed into the Dispatcher, not directly assigned to a router.
+Since your teammate already created dp = Dispatcher(), you can do:
+
+dp = Dispatcher(storage=MemoryStorage())
+
+
+
+
+
+
+
+###
+
+📊 Ideas for /stats categories
+
+Overall Stats
+
+Total workouts logged
+
+Total sets/reps/weight lifted
+
+PRs (personal records) per exercise
+
+Progression / Trends
+
+Graph of strength increase over time (Bench, Squat, Deadlift, etc.)
+
+Compare last week vs this week
+
+Longest workout streak
+
+Leaderboard
+
+Compare user with others (if it’s a multi-user bot)
+
+Show “Top lifters” by exercise (heaviest squat, bench, etc.)
+
+Streak leaderboard
+
+Recent Workouts
+
+Show the last 5 workouts logged
+
+“What did I do last session?” (useful for planning)
+
+Exercise Breakdown
+
+Volume per exercise (Bench 50%, Squat 30%, Deadlift 20%)
+
+Most frequently trained exercise
+
+Achievements / Badges 🏅 (gamification)
+
+“100 workouts logged”
+
+“Lifted 1000kg total in one session”
+
+“7-day streak”
+
+Custom Filters
+
+Stats for a specific exercise (like you already started)
+
+Stats for a time range (last 7 days, last month, all time)
+
+Calories / Duration Tracking (if you log it)
+
+Total workout time
+
+Estimated calories burned
+
+Comparison Mode
+
+Compare today’s session vs previous session
+
+Compare user vs average of all users (if multi-user)
+
+
+
+
+
+
+
+stats command:
+overall                             progression        leaderboard          achievments
+1choose the day,week,entirestats
+
+
+
+
+
+
+date_str = message.text.strip()
+# convert to datetime object
+date_obj = datetime.strptime(date_str, "%d.%m")
+# filter workouts by date
+q = select(Workout).where(
+    Workout.user_id == user_id,
+    Workout.created_at >= datetime(date_obj.year, date_obj.month, date_obj.day)
+)
+2️⃣ User selects from predefined options
+Example buttons: "Today", "This Week", "All Time"
+
+Pros:
+
+Very easy for the user — just tap a button.
+
+Easy to validate, no parsing errors.
+
+Queries are simpler.
+
+Cons:
+
+Less flexibility — user can’t choose exact arbitrary dates.
+
+Querying the DB:
+
+python
+Копировать код
+if time_period == "today":
+    start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+elif time_period == "week":
+    start = datetime.now() - timedelta(days=datetime.now().weekday())
+else:
+    start = None  # all time
+
+q = select(Workout).where(
+    Workout.user_id == user_id,
+    Workout.created_at >= start if start else True
+)
+
+
+
+
+
+
+
+
+Best Lift Progression Show how their max weight per exercise changed over time. 
+Example: Bench Press Max: 50kg → 65kg in 6 weeks Squat Max: 80kg → 95kg 📊 2. Volume Progression Track total volume (sets × reps × weight) over weeks or months. Example: Week 1: 10,000kg Week 2: 12,300kg Week 3: 14,100kg This gives a sense of training load increase. 📅 3. Frequency/Consistency Show how many workouts per week they did. Example: Last 4 weeks: 2, 3, 4, 2 sessions Average: 2.75 /
+ week You could even mark their “best streak”
+  (like 4 weeks without skipping). 🔥 4. PR 
+  Tracker (Personal Records) Highlight their
+   latest personal records: Heaviest lift 
+   Most reps in a set Longest workout This feels motivating.
+    ok lets say i take this idea , how to calculate volum
+
+
+
+
+
+
+
+
+
+
+
+
+    # 1️⃣ User chooses "Best Lift Progression"
+@stats_router.message(StatsForm.progression_state, F.text.casefold() == "best lift progression")
+async def handle_best_lift(message: Message, state: FSMContext):
+    await state.update_data(progression="best_lift")   # save choice
+    await state.set_state(StatsForm.best_lift)         # move to next state
+    await message.answer(
+        "Which exercise do you want to track?",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Bench")],
+                [KeyboardButton(text="Squat")],
+                [KeyboardButton(text="Deadlift")],
+            ],
+            resize_keyboard=True,
+        ),
+    )
+
+# 2️⃣ User picks an exercise (separate function)
+@stats_router.message(StatsForm.best_lift, F.text.casefold().in_(["bench", "squat", "deadlift"]))
+async def process_best_lift_exercise(message: Message, state: FSMContext):
+    exercise = message.text.strip().lower()
+    await state.update_data(exercise=exercise)   # save exercise choice
+
+    # Example: fetch max lift for this exercise
+    session = SessionLocal()
+    try:
+        q = select(Workout).where(Workout.exercise.ilike(exercise))
+        results = session.execute(q).scalars().all()
+
+        if not results:
+            await message.answer(f"No data found for {exercise.title()}.")
+        else:
+            max_weight = max(w.weight for w in results)
+            await message.answer(f"Your best {exercise.title()} lift is {max_weight} kg 🏋️‍♂️")
+
+    finally:
+        session.close()
+
+    # Optionally return to stats menu
+    await state.set_state(StatsForm.choice_type)
+    await message.answer("Back to stats menu 🔁")
