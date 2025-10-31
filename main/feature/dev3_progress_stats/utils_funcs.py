@@ -8,3 +8,8 @@ def one_rep_max(weight: float, reps: int) -> float:
     return weight * (36 / (37 - reps))
     
     
+
+
+def calculate_volume(sets:int,reps:int,weight:float)->float:
+    volume=sets*reps*weight
+    return volume
