@@ -31,6 +31,7 @@ import seaborn as sns
 stats_router = Router()
 storage = MemoryStorage()
 stats_router.storage = storage 
+from .utils_funcs import compute_weekly_volume
 
 
 #####
@@ -61,6 +62,7 @@ class StatsForm(StatesGroup):
     muscle_grp_process_period=State()
     muscle_grp_state=State()
     heat_map_state=State()
+    recomendations_state=State()
 #hander for the stats command 
 # @stats_router.message(Command("stats"))
 # async def stats_comand(message: types.Message, state:FSMContext):
@@ -78,7 +80,8 @@ async def stats_command(message: Message, state: FSMContext):
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
                 [KeyboardButton(text="Overall")],
-                 [ KeyboardButton(text="Progression")]
+                 [ KeyboardButton(text="Progression")],
+                 [KeyboardButton(text="Get Recommendations")],
                 # [KeyboardButton(text="Leaderboard"), KeyboardButton(text="Achievements")]
             ],
             resize_keyboard=True,
@@ -167,12 +170,11 @@ async def process_best_lift(message:types.Message,state:FSMContext):
    # #choice_type=data.get("choice_type")
     await state.update_data(progression="best_lift")
     await state.set_state(StatsForm.best_lift)
+    # remove the custom reply keyboard so the next prompt is clean
     await message.answer(
-        "Which exercise do u want to choose?"
-        "Please write the exercise name (BenchPress, Squat, Deadlift..)"
-
-
-    ) 
+        "Which exercise do u want to choose?\nPlease write the exercise name (BenchPress, Squat, Deadlift..)",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
 
@@ -216,6 +218,7 @@ async def process_best_lift_exercise_choice(message:Message, state: FSMContext):
         await message.answer(f"Here is your weekly progression:\n{text}")
         await state.update_data(weekly_max={str(k): v for k, v in weekly_max.items()})
         await state.set_state(StatsForm.best_lift_action)
+        
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="Graph", callback_data="graph")],
                 [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
@@ -269,6 +272,14 @@ async def graph_or_ORM(callback: types.CallbackQuery, state: FSMContext):
 
         photo = FSInputFile("progress.png")
         await callback.message.answer_photo(photo, caption="Your weekly progression graph")
+        await state.set_state(StatsForm.best_lift_action)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Graph", callback_data="graph")],
+                [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
+                [InlineKeyboardButton(text="Previous", callback_data="Back")],
+               
+            ])
+        await callback.message.answer("Choose an option",reply_markup=keyboard)
 
     elif choice == "orm":
         data = await state.get_data()
@@ -621,6 +632,19 @@ async def process_heat_map(message:types.Message,state:FSMContext):
         await state.clear()
 
 
+
+
+@stats_router.message(StatsForm.choice_type,F.text.casefold()=="get recommendations")
+async def process_recommendations(message :types.Message, state:FSMContext):
+    await state.set_state(StatsForm.recomendations_state)
+    with SessionLocal() as session:
+        user=message.from_user.id
+        data = await compute_weekly_volume(user_id=user, session=session)
+
+    await state.update_data(weekly_volume=data)
+    rec_data = {datetime.fromisoformat(k): v for k, v in data.get("weekly_volume", {}).items()}
+    
+    
 
 
 

@@ -1,3 +1,11 @@
+
+
+import asyncio
+from collections import defaultdict
+from datetime import datetime, timedelta
+from ..dev1_workout_tracking.models import Workout 
+
+
 def one_rep_max(weight: float, reps: int) -> float:
     """Estimate 1RM using Brzycki formula"""
     if reps >= 37:
@@ -13,3 +21,24 @@ def one_rep_max(weight: float, reps: int) -> float:
 def calculate_volume(sets:int,reps:int,weight:float)->float:
     volume=sets*reps*weight
     return volume
+
+
+
+
+
+async def compute_weekly_volume(user_id: int, session):
+    weekly_volume = defaultdict(int)
+    try:
+        results = session.query(Workout).filter(Workout.user_id == user_id).all()
+        print("Queried user_id:", user_id)
+        print("Results found:", len(results))
+        for w in results:
+            print("Workout:", w.exercise, w.sets, w.reps, w.weight, w.created_at)
+            week_start = (w.created_at - timedelta(days=w.created_at.weekday())).date()
+            weekly_volume[week_start] += calculate_volume(w.sets, w.reps, w.weight)
+    finally:
+        session.close()
+    print("Weekly volume dict:", weekly_volume)
+    return {str(k): v for k, v in weekly_volume.items()}
+
+

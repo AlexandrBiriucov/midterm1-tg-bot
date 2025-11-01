@@ -63,6 +63,9 @@ async def log_workout(m: Message):
                 .filter(Workout.user_id == m.from_user.id, Workout.exercise.ilike(exercise), Workout.id != w.id)
                 .all()
             )
+
+
+
             prev_orm = 0.0
             if prev_rows:
                 prev_orm = max((one_rep_max(r.weight, r.reps) for r in prev_rows), default=0.0)
@@ -75,6 +78,7 @@ async def log_workout(m: Message):
             pass
 
         await m.answer(f"Записал: {exercise} — {sets}x{reps}x{weight} кг ✅")
+        print(prev_rows)
     finally:
         session.close()
 
