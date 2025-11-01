@@ -9,6 +9,7 @@ import matplotlib.dates as mdates
 from ..dev1_workout_tracking.db import SessionLocal, init_db
 from ..dev1_workout_tracking.models import Workout
 from .stats_models import User_Stats
+from  .muscle_groups import exercise_to_muscle
 import asyncio
 from aiogram import types, F, Router
 from aiogram.filters import Command
@@ -439,7 +440,7 @@ async def process_chart(message:types.Message,state:FSMContext):
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
                 [KeyboardButton(text="Overall")],
-                 [ KeyboardButton(text="Progression")]
+                 [KeyboardButton(text="Progression")]
                 # [KeyboardButton(text="Leaderboard"), KeyboardButton(text="Achievements")]
             ],
             resize_keyboard=True,
@@ -518,7 +519,7 @@ async def process_muscle_grp_distribution(message: types.Message, state: FSMCont
 
 
 @stats_router.callback_query(lambda c: c.data.startswith("workout_"))
-async def workout_selected(callback_query: types.CallbackQuery):
+async def workout_selected(callback_query: types.CallbackQuery,state=FSMContext):
     date_str = callback_query.data.split("_")[1]
     workout_date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
@@ -558,8 +559,18 @@ async def workout_selected(callback_query: types.CallbackQuery):
 
 
         await callback_query.message.answer_photo(photo=FSInputFile(filename))
-        
+        await state.set_state(StatsForm.choice_type)
+        await callback_query.message.answer(
+        "What stats do u want to see?", 
 
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Overall")],
+                [KeyboardButton(text="Progression")],
+            ],
+            resize_keyboard=True,
+        )
+    )
 
     finally:
         session.close()
