@@ -216,7 +216,7 @@ async def process_best_lift_exercise_choice(message:Message, state: FSMContext):
         await state.update_data(weekly_max={str(k): v for k, v in weekly_max.items()})
         await state.set_state(StatsForm.best_lift_action)
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Grpah", callback_data="graph")],
+                [InlineKeyboardButton(text="Graph", callback_data="graph")],
                 [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
                 [InlineKeyboardButton(text="Previous", callback_data="Back")],
                
@@ -433,6 +433,18 @@ async def process_chart(message:types.Message,state:FSMContext):
 
     photo = FSInputFile("volume_progress.png")
     await message.answer_photo(photo, caption="Your weekly volume progression")
+    await state.set_state(StatsForm.choice_type)
+    await message.answer(
+        "What stats do u want to see?",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Overall")],
+                 [ KeyboardButton(text="Progression")]
+                # [KeyboardButton(text="Leaderboard"), KeyboardButton(text="Achievements")]
+            ],
+            resize_keyboard=True,
+        ),
+    )
 
 
 
