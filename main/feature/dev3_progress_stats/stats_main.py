@@ -681,9 +681,8 @@ async def process_time_period(message :types.Message, state:FSMContext):
             "What stats do you want to see next?",
             reply_markup=ReplyKeyboardMarkup(
                 keyboard=[
-                    [KeyboardButton(text="Overall"), KeyboardButton(text="Progression")],
-                    [KeyboardButton(text="Leaderboard"), KeyboardButton(text="Recent Workouts")],
-                    [KeyboardButton(text="Achievements"), KeyboardButton(text="Breakdown")],
+                    [KeyboardButton(text="Overall"),
+                      KeyboardButton(text="Progression")], 
                 ],
                 resize_keyboard=True,
             )
