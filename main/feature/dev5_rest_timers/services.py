@@ -23,6 +23,9 @@ class Timer:
 timers: dict[int, Timer] = {}
 settings: dict[int, dict[str, int]] = {}
 
+# Presets storage: user_id -> list of {"name": str, "seconds": int}
+presets: dict[int, list[dict]] = {}
+
 # ===== Хранилища =====
 schedules: dict[int, list] = {}   # chat_id -> list of (weekday, time, task)
 user_states: dict[int, dict] = {} # chat_id -> {state, selected_num, selected_day}
@@ -69,4 +72,4 @@ async def reminder_loop(message: Message, weekday, train_time: time):
             await message.answer("🏋️ Training in one hour!")
         except Exception:
             pass  # если пользователь недоступен — игнорим
-
+        
