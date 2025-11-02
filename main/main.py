@@ -49,6 +49,14 @@ Dispatcher.include_router(echo_router)
 async def main():
     # Инициализируем базу данных
     init_db()
+    from feature.dev2_exercise_library.exercise_db import ExerciseDatabase
+    exercise_db = ExerciseDatabase()
+    stats = exercise_db.get_database_stats()
+    print(f"✅ Exercise database loaded: {stats['total_exercises']} exercises")
+    
+    if stats['total_exercises'] == 0:
+        print("⚠️  WARNING: Exercise database is empty!")
+        print("📝 Run 'python feature/dev2_exercise_library/initialize_exercises.py' to populate it")
     # Запускаем поллинг
     await Dispatcher.start_polling(bot)
 
