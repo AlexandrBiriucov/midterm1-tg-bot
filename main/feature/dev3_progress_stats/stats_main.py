@@ -31,7 +31,7 @@ import seaborn as sns
 stats_router = Router()
 storage = MemoryStorage()
 stats_router.storage = storage 
-from .utils_funcs import compute_weekly_volume
+from .utils_funcs import compute_weekly_volume,compute_muscle_group_stats
 
 
 #####
@@ -634,19 +634,34 @@ async def process_heat_map(message:types.Message,state:FSMContext):
 
 
 
-@stats_router.message(StatsForm.choice_type,F.text.casefold()=="get recommendations")
-async def process_recommendations(message :types.Message, state:FSMContext):
+@stats_router.message(StatsForm.choice_type, F.text.casefold() == "get recommendations")
+async def process_recommendations(message: types.Message, state: FSMContext):
     await state.set_state(StatsForm.recomendations_state)
+
+    workout_date = datetime.now(timezone.utc)
+    user = message.from_user.id
+
+    # Always open and close session correctly
     with SessionLocal() as session:
-        user=message.from_user.id
-        data = await compute_weekly_volume(user_id=user, session=session)
+        # Compute both volumes
+        overall_weekly_data = await compute_weekly_volume(user_id=user, session=session)
+        overall_muscle_group_data = await compute_muscle_group_stats(
+            user_id=user,
+            session=session,
+            current_time=datetime.now(timezone.utc)
 
-    await state.update_data(weekly_volume=data)
-    rec_data = {datetime.fromisoformat(k): v for k, v in data.get("weekly_volume", {}).items()}
+        )
+
+    # Save weekly data to FSM
+    await state.update_data(weekly_volume=overall_weekly_data)
+    await state.update_data(muscle_group_stats=overall_muscle_group_data)
     
+    rec_weekly_data = overall_weekly_data
+    rec_muscle_data = overall_muscle_group_data 
+
+    print("Weekly:", rec_weekly_data)
+    print("Muscle groups:", rec_muscle_data)    
     
-
-
 
 
 

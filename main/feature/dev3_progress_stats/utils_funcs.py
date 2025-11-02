@@ -4,7 +4,7 @@ import asyncio
 from collections import defaultdict
 from datetime import datetime, timedelta
 from ..dev1_workout_tracking.models import Workout 
-
+from .muscle_groups import exercise_to_muscle
 
 def one_rep_max(weight: float, reps: int) -> float:
     """Estimate 1RM using Brzycki formula"""
@@ -42,3 +42,28 @@ async def compute_weekly_volume(user_id: int, session):
     return {str(k): v for k, v in weekly_volume.items()}
 
 
+
+
+
+
+async def compute_muscle_group_stats(user_id: int, session,current_time:datetime):
+        try:
+        # Fetch all exercises from that date
+            workouts = (
+                session.query(Workout)
+                .filter(
+                    Workout.user_id == user_id,
+                    Workout.created_at <= current_time
+                )
+                .all()
+            )
+
+            muscle_volume = defaultdict(int)
+            for w in workouts:
+                volume = w.sets * w.reps * w.weight
+                muscle = exercise_to_muscle.get(w.exercise, "Other")
+                muscle_volume[muscle] += volume
+
+            return dict(muscle_volume)
+        finally:
+            session.close()
