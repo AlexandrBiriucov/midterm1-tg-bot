@@ -4,6 +4,7 @@ from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 from .db import SessionLocal
 from .models import Workout
+from ..dev3_progress_stats.utils_funcs import one_rep_max
 import re
 from datetime import datetime, timezone, date, timedelta
 from sqlalchemy import select, extract
@@ -52,7 +53,32 @@ async def log_workout(m: Message):
         # Увеличиваем счетчик тренировок
         increment_workout_count(m.from_user.id)
 
+        # Simple PR check: compare estimated 1RM for this set with previous best 1RM
+        try:
+            new_orm = one_rep_max(weight, reps)
+
+            # get previous best 1RM for this user & exercise excluding current record
+            prev_rows = (
+                session.query(Workout)
+                .filter(Workout.user_id == m.from_user.id, Workout.exercise.ilike(exercise), Workout.id != w.id)
+                .all()
+            )
+
+
+
+            prev_orm = 0.0
+            if prev_rows:
+                prev_orm = max((one_rep_max(r.weight, r.reps) for r in prev_rows), default=0.0)
+
+            if new_orm > prev_orm:
+
+                await m.answer(f" Новый рекорд по {exercise}: {new_orm:.1f} кг (предыдущий рекорд {prev_orm:.1f} кг)")
+        except Exception:
+            
+            pass
+
         await m.answer(f"Записал: {exercise} — {sets}x{reps}x{weight} кг ✅")
+        print(prev_rows)
     finally:
         session.close()
 

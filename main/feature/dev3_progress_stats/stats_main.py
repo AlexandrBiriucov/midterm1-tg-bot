@@ -1,3 +1,4 @@
+from email.mime import message
 import sys,calendar
 sys.path.append(r"C:\telegram_gym_bot\main\feature\dev1_workout_tracking")
 import matplotlib.dates as mdates
@@ -9,6 +10,7 @@ import matplotlib.dates as mdates
 from ..dev1_workout_tracking.db import SessionLocal, init_db
 from ..dev1_workout_tracking.models import Workout
 from .stats_models import User_Stats
+from  .muscle_groups import exercise_to_muscle
 import asyncio
 from aiogram import types, F, Router
 from aiogram.filters import Command
@@ -30,6 +32,7 @@ import seaborn as sns
 stats_router = Router()
 storage = MemoryStorage()
 stats_router.storage = storage 
+from .utils_funcs import compute_weekly_volume,compute_muscle_group_stats,group_muscle_volume_by_week
 
 
 #####
@@ -60,6 +63,7 @@ class StatsForm(StatesGroup):
     muscle_grp_process_period=State()
     muscle_grp_state=State()
     heat_map_state=State()
+    recomendations_state=State()
 #hander for the stats command 
 # @stats_router.message(Command("stats"))
 # async def stats_comand(message: types.Message, state:FSMContext):
@@ -77,7 +81,8 @@ async def stats_command(message: Message, state: FSMContext):
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
                 [KeyboardButton(text="Overall")],
-                 [ KeyboardButton(text="Progression")]
+                 [ KeyboardButton(text="Progression")],
+                 [KeyboardButton(text="Get Recommendations")],
                 # [KeyboardButton(text="Leaderboard"), KeyboardButton(text="Achievements")]
             ],
             resize_keyboard=True,
@@ -166,12 +171,11 @@ async def process_best_lift(message:types.Message,state:FSMContext):
    # #choice_type=data.get("choice_type")
     await state.update_data(progression="best_lift")
     await state.set_state(StatsForm.best_lift)
+    # remove the custom reply keyboard so the next prompt is clean
     await message.answer(
-        "Which exercise do u want to choose?"
-        "Please write the exercise name (BenchPress, Squat, Deadlift..)"
-
-
-    ) 
+        "Which exercise do u want to choose?\nPlease write the exercise name (BenchPress, Squat, Deadlift..)",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
 
@@ -215,8 +219,9 @@ async def process_best_lift_exercise_choice(message:Message, state: FSMContext):
         await message.answer(f"Here is your weekly progression:\n{text}")
         await state.update_data(weekly_max={str(k): v for k, v in weekly_max.items()})
         await state.set_state(StatsForm.best_lift_action)
+        
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Grpah", callback_data="graph")],
+                [InlineKeyboardButton(text="Graph", callback_data="graph")],
                 [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
                 [InlineKeyboardButton(text="Previous", callback_data="Back")],
                
@@ -268,6 +273,14 @@ async def graph_or_ORM(callback: types.CallbackQuery, state: FSMContext):
 
         photo = FSInputFile("progress.png")
         await callback.message.answer_photo(photo, caption="Your weekly progression graph")
+        await state.set_state(StatsForm.best_lift_action)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Graph", callback_data="graph")],
+                [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
+                [InlineKeyboardButton(text="Previous", callback_data="Back")],
+               
+            ])
+        await callback.message.answer("Choose an option",reply_markup=keyboard)
 
     elif choice == "orm":
         data = await state.get_data()
@@ -433,6 +446,18 @@ async def process_chart(message:types.Message,state:FSMContext):
 
     photo = FSInputFile("volume_progress.png")
     await message.answer_photo(photo, caption="Your weekly volume progression")
+    await state.set_state(StatsForm.choice_type)
+    await message.answer(
+        "What stats do u want to see?",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Overall")],
+                 [KeyboardButton(text="Progression")]
+                # [KeyboardButton(text="Leaderboard"), KeyboardButton(text="Achievements")]
+            ],
+            resize_keyboard=True,
+        ),
+    )
 
 
 
@@ -506,7 +531,7 @@ async def process_muscle_grp_distribution(message: types.Message, state: FSMCont
 
 
 @stats_router.callback_query(lambda c: c.data.startswith("workout_"))
-async def workout_selected(callback_query: types.CallbackQuery):
+async def workout_selected(callback_query: types.CallbackQuery,state=FSMContext):
     date_str = callback_query.data.split("_")[1]
     workout_date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
@@ -546,8 +571,18 @@ async def workout_selected(callback_query: types.CallbackQuery):
 
 
         await callback_query.message.answer_photo(photo=FSInputFile(filename))
-        
+        await state.set_state(StatsForm.choice_type)
+        await callback_query.message.answer(
+        "What stats do u want to see?", 
 
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Overall")],
+                [KeyboardButton(text="Progression")],
+            ],
+            resize_keyboard=True,
+        )
+    )
 
     finally:
         session.close()
@@ -600,6 +635,84 @@ async def process_heat_map(message:types.Message,state:FSMContext):
 
 
 
+@stats_router.message(StatsForm.choice_type, F.text.casefold() == "get recommendations")
+async def process_recommendations(message: types.Message, state: FSMContext):
+    await state.set_state(StatsForm.recomendations_state)
+
+    workout_date = datetime.now(timezone.utc)
+    user = message.from_user.id
+
+    # Always open and close session correctly
+    with SessionLocal() as session:
+        # Compute both volumes
+        overall_weekly_data = await compute_weekly_volume(user_id=user, session=session)
+        overall_muscle_group_data = await compute_muscle_group_stats(
+            user_id=user,
+            session=session,
+            current_time=datetime.now(timezone.utc)
+
+        )
+
+    # Save weekly data to FSM
+    await state.update_data(weekly_volume=overall_weekly_data)
+    await state.update_data(muscle_group_stats=overall_muscle_group_data)
+    
+    rec_weekly_data = overall_weekly_data
+    rec_muscle_data = overall_muscle_group_data 
+    weekly_volumes = group_muscle_volume_by_week(rec_muscle_data)
+
+    print("Weekly:", rec_weekly_data)
+    print("Muscle groups:", weekly_volumes)    
+    # Build relative volumes: for each muscle and week, compute percent of that week's total volume
+    relative_volumes = {}
+    # weekly_volumes: {muscle: {week_start(date): volume, ...}, ...}
+    # rec_weekly_data: {"YYYY-MM-DD": total_volume, ...}
+    for muscle, weeks in weekly_volumes.items():
+        rel = {}
+        for week_start, muscle_vol in weeks.items():
+            week_str = str(week_start)
+            total = rec_weekly_data.get(week_str, 0)
+            if total and total > 0:
+                rel[week_str] = (muscle_vol / total) * 100
+            else:
+                rel[week_str] = 0.0
+        relative_volumes[muscle] = rel
+
+    # Determine weak points: muscle-week entries considerably below the expected share
+    weak_points = []
+    num_muscles = len(relative_volumes) if relative_volumes else 0
+    expected_percentage = (100 / num_muscles) if num_muscles else 0
+    for muscle, week_data in relative_volumes.items():
+        for week_str, relative_volume in week_data.items():
+            # mark as weak if less than 70% of expected share
+            if expected_percentage and relative_volume < expected_percentage * 0.7:
+                weak_points.append({
+                    "muscle_group": muscle,
+                    "week": week_str,
+                    "relative_volume": relative_volume,
+                    "deficit": expected_percentage - relative_volume
+                })
+
+    print("Weak points:", weak_points)
+    # format weak points into a readable string before sending to Telegram
+    if weak_points:
+        lines = []
+        for wp in weak_points:
+            mg = wp.get("muscle_group")
+            week = wp.get("week")
+            rel = wp.get("relative_volume", 0.0)
+            deficit = wp.get("deficit", 0.0)
+            lines.append(f"{mg} — week {week}: {rel:.1f}% of weekly volume (deficit {deficit:.1f}%)")
+        message_text = "Weak points detected:\n" + "\n".join(lines)
+    else:
+        message_text = "No weak points detected. Great job!"
+
+
+
+
+    await state.set_state(StatsForm.choice_type)
+    await message.answer(message_text),
+    
 
 
 
@@ -609,13 +722,7 @@ async def process_heat_map(message:types.Message,state:FSMContext):
 
 
 
-
-
-
-
-
-#after overall user can choose the time period of the stats
-@stats_router.message(StatsForm.time_period)
+#after s_router.message(StatsForm.time_period)
 async def process_time_period(message :types.Message, state:FSMContext):
     data= await state.get_data()
     
@@ -658,9 +765,8 @@ async def process_time_period(message :types.Message, state:FSMContext):
             "What stats do you want to see next?",
             reply_markup=ReplyKeyboardMarkup(
                 keyboard=[
-                    [KeyboardButton(text="Overall"), KeyboardButton(text="Progression")],
-                    [KeyboardButton(text="Leaderboard"), KeyboardButton(text="Recent Workouts")],
-                    [KeyboardButton(text="Achievements"), KeyboardButton(text="Breakdown")],
+                    [KeyboardButton(text="Overall"),
+                      KeyboardButton(text="Progression")], 
                 ],
                 resize_keyboard=True,
             )
