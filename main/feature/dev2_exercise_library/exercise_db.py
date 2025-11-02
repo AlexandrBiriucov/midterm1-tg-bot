@@ -130,6 +130,7 @@ class ExerciseDatabase:
         conn = self._get_connection()
         cursor = conn.cursor()
 
+        
         try:
             cursor.execute(f'SELECT DISTINCT {field} FROM exercises WHERE {field} IS NOT NULL ORDER BY {field}')
             values = [row[0] for row in cursor.fetchall()]
