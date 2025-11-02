@@ -19,7 +19,7 @@ from feature.dev1_workout_tracking.userProfiling import get_or_create_user
 # (Даниил) Импорт скриптов Макса.
 from feature.dev5_rest_timers.handlers import router as dev5_router
 
-# from dev2_module import router as dev2_router
+from feature.dev2_exercise_library.exercise_handlers import exercise_router
 from feature.dev3_progress_stats.stats_main import stats_router as dev3_router
 # ... и так далее для dev4, dev5, dev6
 
@@ -39,6 +39,7 @@ Dispatcher.include_router(main_router)
 
 # Включение роутеров разработчиков.
 Dispatcher.include_router(workout_router)
+Dispatcher.include_router(exercise_router)
 Dispatcher.include_router(dev5_router)
 Dispatcher.include_router(dev3_router)
 # Включение эхо роутера.
