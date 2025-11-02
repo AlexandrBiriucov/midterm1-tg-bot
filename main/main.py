@@ -21,6 +21,8 @@ from feature.dev5_rest_timers.handlers import router as dev5_router
 
 from feature.dev2_exercise_library.exercise_handlers import exercise_router
 from feature.dev3_progress_stats.stats_main import stats_router as dev3_router
+from feature.dev4_custom_routines.handlers.routine_handlers import routine_router
+
 # ... и так далее для dev4, dev5, dev6
 
 load_dotenv()
@@ -42,6 +44,8 @@ Dispatcher.include_router(workout_router)
 Dispatcher.include_router(exercise_router)
 Dispatcher.include_router(dev5_router)
 Dispatcher.include_router(dev3_router)
+# 🆕 ДОБАВЛЯЕМ ЭТУ СТРОКУ:
+Dispatcher.include_router(routine_router)
 # Включение эхо роутера.
 Dispatcher.include_router(echo_router)
 # dp.include_router(dev3_router)
@@ -58,6 +62,11 @@ async def main():
     if stats['total_exercises'] == 0:
         print("⚠️  WARNING: Exercise database is empty!")
         print("📝 Run 'python feature/dev2_exercise_library/initialize_exercises.py' to populate it")
+    
+    # 🆕 ДОБАВЛЯЕМ ЭТИ 2 СТРОКИ:
+    from feature.dev4_custom_routines.db.routine_db import routine_db
+    print("✅ Routine system initialized")
+    
     # Запускаем поллинг
     await Dispatcher.start_polling(bot)
 
