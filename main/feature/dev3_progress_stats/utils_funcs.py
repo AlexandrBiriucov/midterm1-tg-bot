@@ -58,12 +58,31 @@ async def compute_muscle_group_stats(user_id: int, session,current_time:datetime
                 .all()
             )
 
-            muscle_volume = defaultdict(int)
+            muscle_volume = defaultdict(lambda:defaultdict(int))
             for w in workouts:
+                date=w.created_at.date()
                 volume = w.sets * w.reps * w.weight
                 muscle = exercise_to_muscle.get(w.exercise, "Other")
-                muscle_volume[muscle] += volume
+                muscle_volume[muscle][date] += volume
 
-            return dict(muscle_volume)
+            return ({m: dict(dates) for m, dates in muscle_volume.items()})
         finally:
             session.close()
+
+
+
+
+
+def group_muscle_volume_by_week(muscle_volumes):
+    weekly_data = {}
+
+    for muscle, daily_data in muscle_volumes.items():
+        weekly_volume = defaultdict(int)
+        for day, volume in daily_data.items():
+            # Compute start of the week (Monday)
+            week_start = day - timedelta(days=day.weekday())
+            weekly_volume[week_start] += volume
+        
+        weekly_data[muscle] = dict(weekly_volume)
+
+    return weekly_data

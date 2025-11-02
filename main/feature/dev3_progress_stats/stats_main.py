@@ -1,3 +1,4 @@
+from email.mime import message
 import sys,calendar
 sys.path.append(r"C:\telegram_gym_bot\main\feature\dev1_workout_tracking")
 import matplotlib.dates as mdates
@@ -31,7 +32,7 @@ import seaborn as sns
 stats_router = Router()
 storage = MemoryStorage()
 stats_router.storage = storage 
-from .utils_funcs import compute_weekly_volume,compute_muscle_group_stats
+from .utils_funcs import compute_weekly_volume,compute_muscle_group_stats,group_muscle_volume_by_week
 
 
 #####
@@ -658,9 +659,59 @@ async def process_recommendations(message: types.Message, state: FSMContext):
     
     rec_weekly_data = overall_weekly_data
     rec_muscle_data = overall_muscle_group_data 
+    weekly_volumes = group_muscle_volume_by_week(rec_muscle_data)
 
     print("Weekly:", rec_weekly_data)
-    print("Muscle groups:", rec_muscle_data)    
+    print("Muscle groups:", weekly_volumes)    
+    # Build relative volumes: for each muscle and week, compute percent of that week's total volume
+    relative_volumes = {}
+    # weekly_volumes: {muscle: {week_start(date): volume, ...}, ...}
+    # rec_weekly_data: {"YYYY-MM-DD": total_volume, ...}
+    for muscle, weeks in weekly_volumes.items():
+        rel = {}
+        for week_start, muscle_vol in weeks.items():
+            week_str = str(week_start)
+            total = rec_weekly_data.get(week_str, 0)
+            if total and total > 0:
+                rel[week_str] = (muscle_vol / total) * 100
+            else:
+                rel[week_str] = 0.0
+        relative_volumes[muscle] = rel
+
+    # Determine weak points: muscle-week entries considerably below the expected share
+    weak_points = []
+    num_muscles = len(relative_volumes) if relative_volumes else 0
+    expected_percentage = (100 / num_muscles) if num_muscles else 0
+    for muscle, week_data in relative_volumes.items():
+        for week_str, relative_volume in week_data.items():
+            # mark as weak if less than 70% of expected share
+            if expected_percentage and relative_volume < expected_percentage * 0.7:
+                weak_points.append({
+                    "muscle_group": muscle,
+                    "week": week_str,
+                    "relative_volume": relative_volume,
+                    "deficit": expected_percentage - relative_volume
+                })
+
+    print("Weak points:", weak_points)
+    # format weak points into a readable string before sending to Telegram
+    if weak_points:
+        lines = []
+        for wp in weak_points:
+            mg = wp.get("muscle_group")
+            week = wp.get("week")
+            rel = wp.get("relative_volume", 0.0)
+            deficit = wp.get("deficit", 0.0)
+            lines.append(f"{mg} — week {week}: {rel:.1f}% of weekly volume (deficit {deficit:.1f}%)")
+        message_text = "Weak points detected:\n" + "\n".join(lines)
+    else:
+        message_text = "No weak points detected. Great job!"
+
+
+
+
+    await state.set_state(StatsForm.choice_type)
+    await message.answer(message_text),
     
 
 
@@ -671,13 +722,7 @@ async def process_recommendations(message: types.Message, state: FSMContext):
 
 
 
-
-
-
-
-
-#after overall user can choose the time period of the stats
-@stats_router.message(StatsForm.time_period)
+#after s_router.message(StatsForm.time_period)
 async def process_time_period(message :types.Message, state:FSMContext):
     data= await state.get_data()
     
