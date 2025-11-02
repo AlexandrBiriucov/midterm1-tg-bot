@@ -1,399 +1,312 @@
-# CHANGELOG.md
+# 🧾 CHANGELOG.md
 
-## [v0.3.0] - October 31, 2024
+## [v0.3.0] — October 31, 2024
 
-### 🎯 Major Updates
+### 🎯 Major Overview
 
-This release brings significant architectural improvements, enhanced user experience, and new features across all modules. Our team focused on optimizing database performance, expanding functionality, and improving code maintainability.
-
----
-
-## 🏋️ Workout Tracking System (Dev1)
-
-### Enhanced Features
-- **Improved workout logging** - Refined the `/log` command with better error handling and input validation
-- **Profile system enhancement** - Added comprehensive user profiling with detailed statistics tracking
-- **Personal Records (PR) detection** - Automatic identification and celebration of new personal bests
-- **Enhanced data persistence** - Improved SQLAlchemy models for better data integrity
-
-### Commands Updated
-- `/log` - Now supports more exercise name variations with fuzzy matching
-- `/today` - Enhanced formatting with clearer timestamp display
-- `/check_training [date]` - Better date parsing with user-friendly error messages
-- `/list_trainings [year]` - Optimized query performance for large datasets
-- `/profile` - Comprehensive user statistics with training history
-- `/stats` - Quick overview of recent training activity
-
-### Bug Fixes
-- Fixed timezone handling issues in workout timestamps
-- Resolved edge cases in One Rep Max (1RM) calculations
-- Corrected database session management to prevent memory leaks
-- Fixed duplicate workout entries when logging multiple sets
-
-### Technical Improvements
-- Migrated to timezone-aware datetime objects throughout the module
-- Optimized database queries for 40% faster response times
-- Added comprehensive error logging for easier debugging
-- Improved code documentation and type hints
+Throughout October, multiple updates brought major architectural improvements, better user experience, and new analytical and customization features.  
+The month-long development cycle focused on **performance optimization**, **database unification**, and **expanded functionality** across all modules.
 
 ---
 
-## 📚 Exercise Library System (Dev2)
+## 🗓️ October 3, 2024 — Workout Tracking Improvements
 
-### 🔄 Major Architecture Overhaul
+### 🏋️ Enhanced Features
 
-This month saw a complete redesign of the exercise library infrastructure, resulting in significant performance improvements and simplified deployment.
+- Improved workout logging with refined input validation and detailed error handling
+    
+- Expanded user profiling with in-depth training statistics
+    
+- Automatic personal record (PR) detection and celebration
+    
+- Strengthened SQLAlchemy data models for better persistence and data integrity
+    
 
-### Database Migration: PostgreSQL → SQLite
-- **Deployment time**: Reduced from 20 minutes to 3 minutes
-- **Database size**: Optimized from 2MB to 200KB
-- **Memory footprint**: Decreased from 50MB to 8MB
-- **Startup time**: Improved from 2-3 seconds to <1 second
+### ⚙️ Command Updates
 
-### Key Changes
-- Eliminated external database server dependency - everything now runs in a single file
-- Removed bilingual structure (name_ru/name_en) - standardized on English-only interface
-- Rewrote all SQL queries to leverage SQLite's optimized syntax
-- Created automated initialization script replacing 10+ manual SQL files
+- `/log` now supports fuzzy matching for exercise names
+    
+- `/today` enhanced with improved timestamp formatting
+    
+- `/check_training [date]` — smarter date parsing and friendly feedback
+    
+- `/profile` — full user stats and training history
+    
+- `/stats` — quick overview of recent activity
+    
 
-### Code Optimization
-- **Lines of code**: Reduced from 850 to 650 (23% reduction)
-- **File count**: Decreased from 15 to 4 files
-- **Dependencies**: Simplified from 2 to 1 (aiogram only, SQLite is built-in)
-- **Query performance**: 30% faster average response time
+### 🐞 Bug Fixes & Optimizations
 
-### Database Contents
-- 90+ exercises with detailed descriptions
-- Comprehensive filtering by muscle group, equipment, and difficulty
-- Proper indexing for instant search results
-- Automated database seeding via `initialize_exercises.py`
-
-### Technical Highlights
-- Unified database schema with cleaner table structure
-- Removed translation module (~300 lines eliminated)
-- Improved error handling and validation
-- Better integration with main bot architecture
-
-### User-Facing Improvements
-- Faster exercise search and filtering
-- More reliable inline keyboard navigation
-- Cleaner exercise descriptions
-- Instant database initialization on first run
+- Fixed timezone mismatches in workout entries
+    
+- Resolved One Rep Max calculation edge cases
+    
+- Prevented duplicate entries during multi-set logging
+    
+- Improved query speed by 40% and implemented timezone-aware datetimes
+    
 
 ---
 
-## 📊 Progress & Statistics Module (Dev3)
+## 🗓️ October 7, 2024 — Exercise Library Redesign
 
-### New Analytics Features
+### 🔄 System Overhaul
 
-#### 🔥 Advanced Visualization System
-Integrated **Matplotlib**, **Pandas**, and **Seaborn** for comprehensive training analytics:
+The entire exercise database architecture was reworked for faster startup, simpler deployment, and lower resource usage.
 
-**1. Frequency Heatmap**
-- Visual representation of training consistency across weeks and months
-- Color-coded intensity showing workout frequency patterns
-- Helps identify optimal training schedules and rest periods
+#### Database Migration
 
-**2. Muscle Group Distribution**
-- Interactive pie charts showing training volume distribution
-- Weekly breakdown by muscle groups (Chest, Back, Legs, etc.)
-- Percentage-based analysis for balanced training monitoring
+- Switched from PostgreSQL → SQLite
+    
+- Deployment reduced from **20 min → 3 min**
+    
+- Memory usage cut from **50 MB → 8 MB**
+    
+- Startup time improved to **<1 second**
+    
 
-**3. One Rep Max Progression**
-- Line graphs tracking strength improvements over time
-- Exercise-specific 1RM progression visualization
-- Week-by-week comparison with trend analysis
+#### Key Enhancements
 
-### Enhanced Commands
-- `/statistics` - Redesigned main menu with improved FSM (Finite State Machine) flow
-- **Overall Stats** - Daily, weekly, and all-time training summaries
-- **Progression Tracking**:
-  - Best Lift Progression with graphical representation
-  - Volume Progression with bar charts
-  - Muscle Group Distribution with pie charts
-  - Training Frequency Heat Maps
+- Removed external DB server dependency — all in one file
+    
+- Standardized on English-only interface
+    
+- Introduced automated initialization replacing manual SQL setup
+    
+- Reduced codebase by 23%, merging 15 files into 4
+    
 
-### 🤖 AI-Powered Recommendations
-New `/get_recommendations` feature that:
-- Analyzes training patterns and identifies weak points
-- Calculates relative muscle group training volume
-- Compares current performance against optimal distribution
-- Provides actionable advice for balanced training
+### 📚 Database Content
 
-**Recommendation Algorithm:**
-- Tracks weekly volume per muscle group
-- Calculates percentage of total weekly volume
-- Identifies muscle groups below 70% of expected training
-- Suggests specific exercises to address imbalances
+- 90+ exercises with structured descriptions
+    
+- Indexed search by muscle group, equipment, and difficulty
+    
+- Instant initialization on first launch
+    
 
-### Bug Fixes & Improvements
-- Fixed FSM state management issues causing stuck conversations
-- Resolved data persistence problems in volume calculations
-- Corrected timezone handling in historical data queries
-- Improved error handling for missing workout data
-- Fixed edge cases in chart generation
+### 🧠 Technical Highlights
 
-### Technical Enhancements
-- Implemented async data processing for faster analytics
-- Optimized database queries with proper indexing
-- Added caching for frequently accessed statistics
-- Improved code modularity and maintainability
-- Enhanced type safety with proper type hints
-
-### Performance Metrics
-- Chart generation: <2 seconds for datasets up to 1000 entries
-- Statistics calculation: 60% faster than previous implementation
-- Memory usage: Optimized for large training histories
+- Cleaner schema, no translation module
+    
+- Unified queries and improved validation
+    
+- 30% faster data retrieval
+    
 
 ---
 
-## 🎯 Custom Routines System (Dev4)
+## 🗓️ October 12, 2024 — Progress & Statistics Expansion
 
-### New Training Programs Module
+### 📊 Advanced Analytics
 
-Introduced a comprehensive system for managing workout routines, offering both preset programs and custom creation capabilities.
+Integrated **Matplotlib**, **Pandas**, and **Seaborn** for powerful training visualization:
 
-### Commands Added
-- `/routines` - Browse and select pre-built training programs
-- `/custom_routines` - Manage personalized workout plans
+- **Frequency Heatmaps** — workout consistency per week/month
+    
+- **Muscle Distribution Charts** — track volume balance
+    
+- **1RM Progress Graphs** — visualize strength improvements
+    
 
-### Preset Programs by Level
+### 🚀 New Commands
 
-**🟢 Beginner Level:**
-- **Full Body Workout** (3x per week)
-  - Basic compound movements
-  - Full-body engagement per session
-  - Schedule: Monday, Wednesday, Friday
-  
-- **PPL (Push/Pull/Legs)** for beginners
-  - Simplified split routine
-  - Manageable volume for newcomers
-  - Progressive overload introduction
+- `/statistics` — redesigned menu with FSM navigation
+    
+- Added graphical progression tracking for lifts and volume
+    
+- `/get_recommendations` — AI-based advice for muscle imbalances
+    
 
-**🟡 Intermediate Level:**
-- **Upper/Lower Split**
-  - 4-day training schedule
-  - Increased volume and intensity
-  - Optimized recovery periods
-  - Advanced compound movements
+### 🤖 Recommendation Engine
 
-**🔴 Advanced Level:**
-- More sophisticated programs coming in next release
-- Focus on periodization and specialization
+- Analyzes weekly training volume
+    
+- Detects undertrained muscle groups (<70%)
+    
+- Suggests targeted exercises for balance
+    
 
-### Custom Routine Features
-- **User-Created Programs:**
-  - Define custom exercise lists
-  - Set personalized schedules
-  - Add descriptions and notes
-  - Save unlimited routines
+### ⚙️ Performance
 
-- **Routine Management:**
-  - View all saved programs
-  - Edit existing routines
-  - Delete outdated programs
-  - Quick access via inline keyboards
-
-### Database Integration
-- SQLite storage for routine persistence
-- User-specific routine collections
-- Efficient querying and retrieval
-- Automatic backup and recovery
-
-### User Interface
-- Clean inline keyboard navigation
-- Step-by-step routine creation wizard
-- Visual program previews
-- Easy routine selection and loading
-
-### Technical Implementation
-- Modular architecture in `feature/dev4_custom_routines/`
-- Separate handlers for preset and custom routines
-- JSON-based routine data structure
-- Integration with existing bot framework
-
-### Future Enhancements (Coming Soon)
-- Routine sharing between users
-- Community-voted best routines
-- Progress tracking per routine
-- Routine effectiveness analytics
+- Async analytics with caching
+    
+- 60% faster stats calculations
+    
+- Handles 1000+ entries in <2 seconds
+    
 
 ---
 
-## ⏱️ Timers & Notifications (Dev5)
+## 🗓️ October 18, 2024 — Custom Routines System
 
-### Major Restructuring
+### 🧩 Training Program Management
 
-Successfully migrated all timer, notification, and nutrition tracking features to the new unified Git architecture. This restructuring improved code organization and eliminated numerous integration issues.
+Introduced flexible training routines — both preset and user-made.
 
-### Enhanced Timer System
+#### 💪 Preset Programs
 
-**New Preset Management:**
-- Save custom timer presets for different exercises
-- Quick-access buttons for frequently used timers
-- Name and organize up to 10 presets per user
-- Edit and delete existing presets
+**Beginner:** Full Body, Push/Pull/Legs  
+**Intermediate:** Upper/Lower Split  
+**Advanced:** Specialized templates (coming soon)
 
-**Improved User Interface:**
-- Cleaner inline keyboard layout
-- Faster preset loading
-- Better visual feedback
-- More intuitive preset editing
+#### 🧠 Custom Routine Builder
 
-### Advanced Nutrition Tracking
+- Create, edit, and delete custom workout programs
+    
+- Add descriptions, notes, and schedules
+    
+- Store unlimited routines with SQLite persistence
+    
 
-**🧮 Nutrition Calculator:**
-Comprehensive macro calculator based on user parameters:
-- **BMR Calculation** (Basal Metabolic Rate)
-  - Gender-specific formulas (Mifflin-St Jeor Equation)
-  - Age, weight, and height considerations
-  
-- **TDEE Calculation** (Total Daily Energy Expenditure)
-  - Activity level multipliers
-  - Sedentary to Extremely Active options
-  
-- **Goal-Based Adjustments:**
-  - Weight Loss: 500 calorie deficit
-  - Weight Maintenance: TDEE baseline
-  - Weight Gain: 300 calorie surplus
+#### 🖥️ User Interface
 
-**📊 Macro Distribution:**
-- Protein targets: 1.6-2.2g per kg body weight
-- Optimized carb/fat ratios based on goals
-- Scientific approach to macro balancing
-
-**New `/nutrition` Features:**
-- Manual goal setting for precise control
-- Calculator-based goal generation
-- Real-time progress tracking
-- Daily intake summaries
-
-### Training Notifications
-
-**Custom Reminder System:**
-- Set reminders from 1 minute to 24 hours before training
-- Multiple active reminders per user
-- Edit existing notification times
-- Delete outdated reminders
-
-### Bug Fixes
-- Resolved Git merge conflicts during migration
-- Fixed timer state persistence issues
-- Corrected nutrition database queries
-- Improved error handling across all modules
-
-### Code Quality Improvements
-- Better separation of concerns
-- Cleaner module structure
-- Enhanced documentation
-- Consistent coding standards
+- Inline keyboard navigation
+    
+- Step-by-step creation wizard
+    
+- Routine previews and fast loading
+    
 
 ---
 
-## 🌐 Internationalization Preparation (Dev6)
+## 🗓️ October 22, 2024 — Timers, Notifications & Nutrition
 
-### Translation System Research
+### ⏱️ Timer System
 
-Conducted comprehensive research into multilingual support implementation:
+- Added customizable timer presets
+    
+- Up to 10 named presets per user
+    
+- Instant editing and deletion
+    
+- Improved visual layout and feedback
+    
 
-**Google Cloud Translation API Integration:**
-- Evaluated API capabilities and pricing
-- Tested translation quality for fitness terminology
-- Assessed response times and reliability
-- Documented integration requirements
+### 🍎 Nutrition Tracking
 
-**Language Support Planning:**
-- Identified target languages (English, Romanian, Russian)
-- Created terminology glossaries for fitness-specific terms
-- Developed translation workflow diagrams
-- Designed language selection user flow
+- Integrated BMR & TDEE calculator
+    
+- Goal-based calorie recommendations (loss/maintain/gain)
+    
+- Real-time macro tracking with adjustable targets
+    
+- `/nutrition` command for daily summaries
+    
 
-### Technical Exploration
-- Investigated asynchronous translation approaches
-- Analyzed caching strategies for frequent translations
-- Evaluated fallback mechanisms for API failures
-- Explored offline translation alternatives
+### 🔔 Notifications
 
-### Infrastructure Preparation
-- Created translation module structure
-- Designed database schema for multilingual content
-- Planned user language preference storage
-- Documented API key management best practices
+- Custom reminders from 1 min to 24 h before workouts
+    
+- Manage multiple reminders
+    
+- Improved persistence and reliability
+    
 
-### Challenges Identified
-- Fitness terminology requires specialized translation
-- Exercise names need consistent localization
-- Real-time translation adds latency
-- API costs need optimization
+### 🧩 Technical Fixes
 
-### Next Steps
-- Implement basic two-language support (English/Romanian)
-- Create translation caching system
-- Develop user language selection interface
-- Test translation accuracy with fitness content
-
----
-
-## 🔧 Technical Improvements
-
-### Dependency Management
-- Updated `requirements.txt` with all necessary packages
-- Added data visualization libraries (Matplotlib, Pandas, Seaborn)
-- Documented version requirements for stability
-- Removed redundant dependencies
-
-### Database Optimization
-- Unified SQLite usage across all modules
-- Implemented proper connection pooling
-- Added database migration scripts
-- Improved query performance with indexing
-
-### Code Quality
-- Enhanced error handling throughout all modules
-- Added comprehensive logging
-- Improved code documentation
-- Standardized coding conventions
-
-### Testing
-- Added unit tests for critical functions
-- Implemented integration testing framework
-- Created test data generators
-- Documented testing procedures
+- Resolved timer state bugs
+    
+- Fixed database issues in nutrition logs
+    
+- Unified timer and notification architecture
+    
 
 ---
 
-## 📈 Performance Metrics
+## 🗓️ October 26, 2024 — Internationalization Research
 
-- **Bot Response Time:** Average 300ms (improved from 800ms)
-- **Database Queries:** 40% faster on average
-- **Memory Usage:** Reduced by 60% across all modules
-- **Startup Time:** <2 seconds (from 5-7 seconds)
-- **Concurrent Users:** Tested up to 100 simultaneous connections
+### 🌍 Translation System Planning
+
+- Evaluated Google Cloud Translation API performance
+    
+- Defined target languages: English, Romanian, Russian
+    
+- Created terminology glossaries for fitness-specific phrases
+    
+- Designed caching and async translation strategies
+    
+
+### 🧱 Infrastructure Setup
+
+- Database schema for multilingual content
+    
+- Language preference storage
+    
+- API key management guidelines
+    
+
+### 🚧 Next Steps
+
+- Add bilingual (EN/RO) prototype
+    
+- Implement translation caching
+    
+- Build user-facing language selector
+    
+
+---
+
+## 🗓️ October 31, 2024 — Final Technical & Performance Updates
+
+### 🔧 System-Wide Improvements
+
+- Unified SQLite usage across modules
+    
+- Implemented connection pooling and indexing
+    
+- Enhanced logging and error handling
+    
+- Improved documentation and standardized code style
+    
+
+### 🧪 Testing
+
+- Added unit and integration tests
+    
+- Automated test data generation
+    
+- Documented QA procedures
+    
+
+### ⚡ Performance Summary
+
+- Bot response: **300 ms** average (↓ from 800 ms)
+    
+- Database queries: **40% faster**
+    
+- Memory usage: **−60%**
+    
+- Startup time: **<2 seconds**
+    
+- Stable under **100 concurrent users**
+    
 
 ---
 
 ## 🐛 Known Issues
 
-- Exercise library requires manual initialization on first deployment
-- Some timezone edge cases in workout tracking need attention
-- Nutrition API rate limiting not yet implemented
-- Translation module still in development phase
+- Exercise library may require manual initialization once
+    
+- Some timezone inconsistencies remain
+    
+- Translation system still experimental
+    
+- Nutrition rate-limiting pending
+    
 
 ---
 
 ## 🚀 Coming in v0.4.0
 
-- Social features (workout sharing, friend competitions)
-- Advanced routine templates for all levels
-- Complete multilingual support
-- Mobile-responsive workout logging
-- Integration with fitness wearables
-- Community exercise database contributions
-
----
-
-## 📝 Contributors
-
-This release was made possible by the collaborative efforts of our development team, with each member contributing to their specialized modules while maintaining overall system cohesion.
-
----
+- Social workout sharing & competitions
+    
+- Routine analytics and tracking
+    
+- Full multilingual support
+    
+- Mobile-friendly workout logging
+    
+- Integration with wearables
+    
+- Community exercise contributions
