@@ -108,7 +108,58 @@ async def process_overall_choice(message:Message,state:FSMContext):
     )
 
 
+@stats_router.message(StatsForm.time_period)
+async def process_time_period(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    choice_type = data.get("choice_type")
+    time_period = message.text.strip().lower()
 
+    user_id = message.from_user.id
+    now = datetime.now(timezone.utc)
+    session = SessionLocal()
+
+    try:
+        q = select(Workout).where(Workout.user_id == user_id)
+
+        if time_period == "Today":
+            start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+            q = q.where(Workout.created_at >= start, Workout.created_at <= now)
+
+        elif time_period == "This Week":
+            start = now - timedelta(days=7)
+            q = q.where(Workout.created_at >= start, Workout.created_at <= now)
+
+        # "All Time" → no date filters
+
+        q = q.order_by(Workout.created_at.desc())
+        results = session.execute(q).scalars().all()
+
+        if not results:
+            await message.answer("No results found for this period.")
+        else:
+            text = "\n".join(
+                f"{w.created_at:%d-%m %H:%M} — {w.exercise} {w.sets}x{w.reps}x{w.weight} kg"
+                for w in results
+            )
+            await message.answer(f"Here are your workouts:\n{text}")
+
+        # Return to main stats menu
+        await state.set_state(StatsForm.choice_type)
+        await message.answer(
+            "What stats do you want to see next?",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text="Overall")],
+                    [KeyboardButton(text="Progression")],
+                    [KeyboardButton(text="Get Recommendations")],
+                ],
+                resize_keyboard=True,
+            ),
+        )
+
+    finally:
+        session.close()
+        
 
 
 
@@ -138,6 +189,11 @@ async def process_progression_choice(message:Message,state:FSMContext):
 
  
     )
+
+
+
+
+
 
 
 
@@ -711,7 +767,7 @@ async def process_recommendations(message: types.Message, state: FSMContext):
 
 
     await state.set_state(StatsForm.choice_type)
-    await message.answer(message_text),
+    await message.answer(message_text)
     
 
 
@@ -722,59 +778,61 @@ async def process_recommendations(message: types.Message, state: FSMContext):
 
 
 
-#after s_router.message(StatsForm.time_period)
-async def process_time_period(message :types.Message, state:FSMContext):
-    data= await state.get_data()
+# #after s_router.message(StatsForm.time_period)
+# @stats_router.message(StatsForm.recommendations_state, F.text.casefold() == "overall")
+# async def process_time_period(message :types.Message, state:FSMContext):
+#     data= await state.get_data()
+#     state.set_state(StatsForm.time_period)
     
-    choice_type=data.get("choice_type")
-    time_period=message.text.strip()
+#     choice_type=data.get("choice_type")
+#     time_period=message.text.strip()
 
-    user_id=message.from_user.id
-    now=datetime.now(timezone.utc)
-    session=SessionLocal()
+#     user_id=message.from_user.id
+#     now=datetime.now(timezone.utc)
+#     session=SessionLocal()
 
-    try:
-        q=select(Workout).where(Workout.user_id==user_id)
+#     try:
+#         q=select(Workout).where(Workout.user_id==user_id)
 
-        if time_period=="Today":
-             start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-             q=q.where(Workout.created_at>=start , Workout.created_at<=now)
-        elif time_period=="This Week":
-            start=now-timedelta(days=7)
-            q=q.where(Workout.created_at>=start,Workout.created_at<=now)
+#         if time_period=="Today":
+#              start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+#              q=q.where(Workout.created_at>=start , Workout.created_at<=now)
+#         elif time_period=="This Week":
+#             start=now-timedelta(days=7)
+#             q=q.where(Workout.created_at>=start,Workout.created_at<=now)
         
-        q=q.order_by(Workout.created_at.desc())
-        results= session.execute(q).scalars().all()
-        if not results:
-            await message.answer("no results found")
-        else:
-            text = "\n".join(
-                f"{w.created_at:%d-%m %H:%M} — {w.exercise} {w.sets}x{w.reps}x{w.weight} kg"
-                for w in results
-            )
+#         q=q.order_by(Workout.created_at.desc())
+#         results= session.execute(q).scalars().all()
+#         if not results:
+#             await message.answer("no results found")
+#         else:
+#             text = "\n".join(
+#                 f"{w.created_at:%d-%m %H:%M} — {w.exercise} {w.sets}x{w.reps}x{w.weight} kg"
+#                 for w in results
+#             )
             
-            await message.answer(f"Here are your workouts:\n{text}")
+#             await message.answer(f"Here are your workouts:\n{text}")
 
 
 
 
 
 
-        await state.set_state(StatsForm.choice_type)
-        await message.answer(
-            "What stats do you want to see next?",
-            reply_markup=ReplyKeyboardMarkup(
-                keyboard=[
-                    [KeyboardButton(text="Overall"),
-                      KeyboardButton(text="Progression")], 
-                ],
-                resize_keyboard=True,
-            )
-        )
+#         await state.set_state(StatsForm.choice_type)
+#         await message.answer(
+#             "What stats do you want to see next?",
+#             reply_markup=ReplyKeyboardMarkup(
+#                 keyboard=[
+#                     [KeyboardButton(text="Overall"),
+#                       KeyboardButton(text="Progression")], 
+#                 ],
+#                 resize_keyboard=True,
+#             )
+#         )
 
-    finally:
-        session.close()
-        await state.clear()        
+#     finally:
+#         session.close()
+#         await state.clear()        
 
 
 
