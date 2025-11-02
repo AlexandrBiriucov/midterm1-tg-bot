@@ -11,6 +11,79 @@ USDA_API_KEY = "3X3lZVkwbI7csqXUY0fOxkKm1bdBN8OeJSwZX74y"
 USDA_BASE_URL = "https://api.nal.usda.gov/fdc/v1"
 
 
+class NutritionCalculator:
+    """Calculate nutritional needs based on user parameters"""
+    
+    @staticmethod
+    def calculate_bmr(gender: str, weight_kg: float, height_cm: float, age: int) -> float:
+        """Calculate Basal Metabolic Rate using Mifflin-St Jeor Equation"""
+        if gender.lower() == "male":
+            bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
+        else:  # female
+            bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
+        return bmr
+    
+    @staticmethod
+    def calculate_tdee(bmr: float, activity_multiplier: float) -> float:
+        """Calculate Total Daily Energy Expenditure"""
+        return bmr * activity_multiplier
+    
+    @staticmethod
+    def calculate_macros(calories: float, goal_type: str, weight_kg: float) -> Dict[str, float]:
+        """Calculate macro distribution based on goal"""
+        # Protein: 1.6-2.2g per kg body weight (higher for weight loss)
+        if goal_type == "loss":
+            protein = weight_kg * 2.0
+            # Higher protein, lower carbs for weight loss
+            protein_cals = protein * 4
+            fat_cals = calories * 0.30  # 30% from fat
+            carb_cals = calories - protein_cals - fat_cals
+        elif goal_type == "gain":
+            protein = weight_kg * 1.8
+            # Moderate protein, higher carbs for weight gain
+            protein_cals = protein * 4
+            fat_cals = calories * 0.25  # 25% from fat
+            carb_cals = calories - protein_cals - fat_cals
+        else:  # maintain
+            protein = weight_kg * 1.6
+            # Balanced macro split
+            protein_cals = protein * 4
+            fat_cals = calories * 0.30  # 30% from fat
+            carb_cals = calories - protein_cals - fat_cals
+        
+        return {
+            "protein": protein,
+            "carbs": carb_cals / 4,  # 4 calories per gram
+            "fat": fat_cals / 9  # 9 calories per gram
+        }
+    
+    @staticmethod
+    def calculate_goals(gender: str, age: int, weight_kg: float, height_cm: float, 
+                       activity_multiplier: float, goal_type: str) -> Dict[str, float]:
+        """Calculate complete nutritional goals"""
+        bmr = NutritionCalculator.calculate_bmr(gender, weight_kg, height_cm, age)
+        tdee = NutritionCalculator.calculate_tdee(bmr, activity_multiplier)
+        
+        # Adjust calories based on goal
+        if goal_type == "loss":
+            target_calories = tdee - 500  # 500 calorie deficit
+        elif goal_type == "gain":
+            target_calories = tdee + 300  # 300 calorie surplus
+        else:  # maintain
+            target_calories = tdee
+        
+        macros = NutritionCalculator.calculate_macros(target_calories, goal_type, weight_kg)
+        
+        return {
+            "calories": target_calories,
+            "protein": macros["protein"],
+            "carbs": macros["carbs"],
+            "fat": macros["fat"],
+            "bmr": bmr,
+            "tdee": tdee
+        }
+
+
 class DatabaseManager:
     def __init__(self, db_path="nutrition_tracker.db"):
         self.db_path = db_path
@@ -246,6 +319,7 @@ class NutritionBot:
         self.session = None
         self.db = DatabaseManager()
         self.temp_food_data = {}
+        self.calculator = NutritionCalculator()
     
     async def ensure_session(self):
         """Ensure aiohttp session exists"""

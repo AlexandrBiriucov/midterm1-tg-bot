@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from datetime import date
 
@@ -10,7 +10,11 @@ from .keyboards import (
     create_main_menu,
     create_meal_type_keyboard,
     create_food_results_keyboard,
-    create_back_keyboard
+    create_back_keyboard,
+    create_goal_setting_method_keyboard,
+    create_gender_keyboard,
+    create_activity_level_keyboard,
+    create_goal_type_keyboard
 )
 
 router = Router()
@@ -29,7 +33,7 @@ async def nutrition_start(message: Message, state: FSMContext):
 
 Track your daily nutrition with comprehensive features:
 
-🍔 **Add Food** - Search and log meals
+🔍 **Add Food** - Search and log meals
 📊 **Daily Summary** - See your progress
 🎯 **Set Goals** - Define nutrition targets
 📋 **View Meals** - Review logged foods
@@ -190,7 +194,6 @@ async def handle_portion_input(message: Message, state: FSMContext):
         )
         
         # Show confirmation
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         meal_emoji = {"breakfast": "🥞", "lunch": "🥗", "dinner": "🍽️", "snack": "🍎"}
         
         response = f"""
@@ -222,7 +225,6 @@ async def handle_portion_input(message: Message, state: FSMContext):
 @router.callback_query(F.data == "nutrition_daily_summary")
 async def daily_summary_callback(callback: CallbackQuery):
     """Handle daily summary callback"""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     user_id = callback.from_user.id
     
     # Get daily intake
@@ -271,7 +273,7 @@ async def daily_summary_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == "nutrition_set_goals")
 async def set_goals_callback(callback: CallbackQuery, state: FSMContext):
-    """Handle set goals callback"""
+    """Handle set goals callback - show method selection"""
     user_id = callback.from_user.id
     current_goals = nutrition_bot.db.get_user_goals(user_id)
     
@@ -284,20 +286,35 @@ async def set_goals_callback(callback: CallbackQuery, state: FSMContext):
 🍞 Carbs: {current_goals['carbs']:.0f}g
 🥑 Fat: {current_goals['fat']:.0f}g
 
-**Enter your new daily calorie goal:**
-*Example: 2000*
+**Choose how you'd like to update your goals:**
         """
     else:
         response = """
 🎯 **Set Your Daily Nutrition Goals**
 
-Let's set up your daily nutrition targets!
+Choose your preferred method to set your goals:
+
+✍️ **Enter Manually** - Input your own targets
+🧮 **Food Calculator** - Calculate based on your body metrics and goals
+        """
+    
+    keyboard = create_goal_setting_method_keyboard()
+    await callback.message.edit_text(response, parse_mode="Markdown", reply_markup=keyboard)
+    await callback.answer()
+
+
+# MANUAL GOAL SETTING FLOW
+@router.callback_query(F.data == "nutrition_goal_manual")
+async def goal_manual_callback(callback: CallbackQuery, state: FSMContext):
+    """Start manual goal setting"""
+    response = """
+✍️ **Manual Goal Setting**
 
 **Enter your daily calorie goal:**
 *Example: 2000*
-        """
+    """
     
-    await callback.message.edit_text(response, parse_mode="Markdown", reply_markup=create_back_keyboard("nutrition_main_menu"))
+    await callback.message.edit_text(response, parse_mode="Markdown", reply_markup=create_back_keyboard("nutrition_set_goals"))
     await state.set_state(NutritionStates.waiting_for_goal_calories)
     await callback.answer()
 
@@ -377,7 +394,6 @@ async def handle_goal_carbs(message: Message, state: FSMContext):
 @router.message(NutritionStates.waiting_for_goal_fat)
 async def handle_goal_fat(message: Message, state: FSMContext):
     """Handle fat goal input"""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     try:
         fat = float(message.text.strip())
         
@@ -422,10 +438,207 @@ You can now track your progress against these goals!
         await message.answer("Please enter a valid number for fat.")
 
 
+# CALCULATOR GOAL SETTING FLOW
+@router.callback_query(F.data == "nutrition_goal_calculator")
+async def goal_calculator_start(callback: CallbackQuery, state: FSMContext):
+    """Start calculator-based goal setting"""
+    response = """
+🧮 **Nutrition Goals Calculator**
+
+Let's calculate your personalized nutrition goals based on your body metrics and activity level!
+
+**First, enter your age:**
+*Example: 25*
+    """
+    
+    await callback.message.edit_text(response, parse_mode="Markdown", reply_markup=create_back_keyboard("nutrition_set_goals"))
+    await state.set_state(NutritionStates.waiting_for_age)
+    await callback.answer()
+
+
+@router.message(NutritionStates.waiting_for_age)
+async def handle_calculator_age(message: Message, state: FSMContext):
+    """Handle age input for calculator"""
+    try:
+        age = int(message.text.strip())
+        
+        if age < 15 or age > 100:
+            await message.answer("Please enter a valid age between 15 and 100.")
+            return
+        
+        await state.update_data(calc_age=age)
+        
+        response = """
+✅ Age recorded!
+
+**Now select your gender:**
+        """
+        
+        keyboard = create_gender_keyboard()
+        await message.answer(response, parse_mode="Markdown", reply_markup=keyboard)
+        
+    except ValueError:
+        await message.answer("Please enter a valid number for age.")
+
+
+@router.callback_query(F.data.startswith("nutrition_gender:"))
+async def handle_calculator_gender(callback: CallbackQuery, state: FSMContext):
+    """Handle gender selection for calculator"""
+    gender = callback.data.split(":")[1]
+    await state.update_data(calc_gender=gender)
+    
+    gender_emoji = {"male": "👨", "female": "👩"}
+    
+    response = f"""
+✅ Gender: {gender_emoji.get(gender)} {gender.title()}
+
+**Enter your weight in kilograms:**
+*Example: 75*
+    """
+    
+    await callback.message.edit_text(response, parse_mode="Markdown", reply_markup=create_back_keyboard("nutrition_set_goals"))
+    await state.set_state(NutritionStates.waiting_for_weight)
+    await callback.answer()
+
+
+@router.message(NutritionStates.waiting_for_weight)
+async def handle_calculator_weight(message: Message, state: FSMContext):
+    """Handle weight input for calculator"""
+    try:
+        weight = float(message.text.strip())
+        
+        if weight < 30 or weight > 300:
+            await message.answer("Please enter a valid weight between 30 and 300 kg.")
+            return
+        
+        await state.update_data(calc_weight=weight)
+        
+        await message.answer(
+            f"✅ Weight: {weight}kg\n\n"
+            "**Enter your height in centimeters:**\n"
+            "*Example: 175*",
+            parse_mode="Markdown"
+        )
+        await state.set_state(NutritionStates.waiting_for_height)
+        
+    except ValueError:
+        await message.answer("Please enter a valid number for weight.")
+
+
+@router.message(NutritionStates.waiting_for_height)
+async def handle_calculator_height(message: Message, state: FSMContext):
+    """Handle height input for calculator"""
+    try:
+        height = float(message.text.strip())
+        
+        if height < 120 or height > 250:
+            await message.answer("Please enter a valid height between 120 and 250 cm.")
+            return
+        
+        await state.update_data(calc_height=height)
+        
+        response = f"""
+✅ Height: {height}cm
+
+**Select your activity level:**
+        """
+        
+        keyboard = create_activity_level_keyboard()
+        await message.answer(response, parse_mode="Markdown", reply_markup=keyboard)
+        
+    except ValueError:
+        await message.answer("Please enter a valid number for height.")
+
+
+@router.callback_query(F.data.startswith("nutrition_activity:"))
+async def handle_calculator_activity(callback: CallbackQuery, state: FSMContext):
+    """Handle activity level selection for calculator"""
+    activity_multiplier = float(callback.data.split(":")[1])
+    await state.update_data(calc_activity=activity_multiplier)
+    
+    activity_labels = {
+        1.2: "Sedentary",
+        1.375: "Lightly Active",
+        1.55: "Moderately Active",
+        1.725: "Very Active",
+        1.9: "Extremely Active"
+    }
+    
+    response = f"""
+✅ Activity Level: {activity_labels.get(activity_multiplier)}
+
+**Finally, select your goal:**
+        """
+    
+    keyboard = create_goal_type_keyboard()
+    await callback.message.edit_text(response, parse_mode="Markdown", reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("nutrition_goaltype:"))
+async def handle_calculator_goal_type(callback: CallbackQuery, state: FSMContext):
+    """Handle goal type selection and calculate nutrition goals"""
+    goal_type = callback.data.split(":")[1]
+    
+    data = await state.get_data()
+    
+    # Calculate nutrition goals
+    goals = nutrition_bot.calculator.calculate_goals(
+        gender=data['calc_gender'],
+        age=data['calc_age'],
+        weight_kg=data['calc_weight'],
+        height_cm=data['calc_height'],
+        activity_multiplier=data['calc_activity'],
+        goal_type=goal_type
+    )
+    
+    # Save to database
+    user_id = callback.from_user.id
+    nutrition_bot.db.set_user_goals(
+        user_id,
+        goals['calories'],
+        goals['protein'],
+        goals['carbs'],
+        goals['fat']
+    )
+    
+    goal_labels = {
+        "loss": "Weight Loss 📉",
+        "maintain": "Maintain Weight ⚖️",
+        "gain": "Weight Gain 📈"
+    }
+    
+    response = f"""
+🎯 **Goals Calculated Successfully!**
+
+**Your Profile:**
+👤 Age: {data['calc_age']} | Gender: {data['calc_gender'].title()}
+⚖️ Weight: {data['calc_weight']}kg | Height: {data['calc_height']}cm
+🎯 Goal: {goal_labels.get(goal_type)}
+
+**Your Daily Nutrition Goals:**
+🔥 Calories: {goals['calories']:.0f} kcal
+🥩 Protein: {goals['protein']:.0f}g
+🍞 Carbs: {goals['carbs']:.0f}g
+🥑 Fat: {goals['fat']:.0f}g
+
+Start tracking your meals to reach your goals!
+    """
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Add Food", callback_data="nutrition_add_food")],
+        [InlineKeyboardButton(text="📊 Daily Summary", callback_data="nutrition_daily_summary")],
+        [InlineKeyboardButton(text="🏠 Main Menu", callback_data="nutrition_main_menu")]
+    ])
+    
+    await callback.message.edit_text(response, parse_mode="Markdown", reply_markup=keyboard)
+    await state.clear()
+    await callback.answer()
+
+
 @router.callback_query(F.data == "nutrition_view_meals")
 async def view_meals_callback(callback: CallbackQuery):
     """Handle view meals callback"""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     user_id = callback.from_user.id
     meals = nutrition_bot.db.get_daily_meals(user_id)
     

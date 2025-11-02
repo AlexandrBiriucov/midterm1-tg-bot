@@ -8,3 +8,11 @@ class NutritionStates(StatesGroup):
     waiting_for_goal_protein = State()
     waiting_for_goal_carbs = State()
     waiting_for_goal_fat = State()
+
+    # Calculator states
+    waiting_for_age = State()
+    waiting_for_gender = State()
+    waiting_for_weight = State()
+    waiting_for_height = State()
+    waiting_for_activity_level = State()
+    waiting_for_goal_type = State()
