@@ -7,27 +7,23 @@ from aiogram import Bot, Dispatcher
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
-# Импорт внешних пакетов из requirements.txt
+#Импорт внешних пакетов из requirements.txt
 
 # Добавляем папку feature в путь поиска модулей
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'feature'))
-
-# (Даниил) Импорт моих скриптов
+# (Даниил) Импорт моих скриптов.
 from feature.dev1_workout_tracking.db import init_db
 from feature.dev1_workout_tracking.workout_tracking import router as workout_router
 from feature.dev1_workout_tracking.userProfiling import get_or_create_user
 
-# (Даниил) Импорт скриптов Макса
+# (Даниил) Импорт скриптов Макса.
 from feature.dev5_rest_timers.handlers import router as dev5_router
 from feature.nutrition_tracking.handlers import router as nutrition_router
 
 # Импорт модуля уведомлений о тренировках
 from feature.training_notification.handlers import router as notification_router
 
-# Импорт модуля библиотеки упражнений (dev2)
 from feature.dev2_exercise_library.exercise_handlers import exercise_router
-
-# from dev2_module import router as dev2_router
 from feature.dev3_progress_stats.stats_main import stats_router as dev3_router
 # ... и так далее для dev4, dev5, dev6
 
@@ -41,19 +37,18 @@ Dispatcher = Dispatcher()
 main_router = Router()
 echo_router = Router()
 
-# Включаем (include) все роутеры в диспетчере
-# Включение main роутера
+# Включаем (include) все роутер в диспетчере
+# Включение main роутера.
 Dispatcher.include_router(main_router)
 
-# Включение роутеров разработчиков
+# Включение роутеров разработчиков.
 Dispatcher.include_router(workout_router)
-Dispatcher.include_router(exercise_router)  # Роутер библиотеки упражнений
+Dispatcher.include_router(exercise_router)
 Dispatcher.include_router(dev5_router)
 Dispatcher.include_router(dev3_router)
 Dispatcher.include_router(nutrition_router)
 Dispatcher.include_router(notification_router)
-
-# Включение эхо роутера
+# Включение эхо роутера.
 Dispatcher.include_router(echo_router)
 # dp.include_router(dev3_router)
 # ... и так далее
@@ -61,8 +56,15 @@ Dispatcher.include_router(echo_router)
 async def main():
     # Инициализируем базу данных
     init_db()
+    from feature.dev2_exercise_library.exercise_db import ExerciseDatabase
+    exercise_db = ExerciseDatabase()
+    stats = exercise_db.get_database_stats()
+    print(f"✅ Exercise database loaded: {stats['total_exercises']} exercises")
+    
+    if stats['total_exercises'] == 0:
+        print("⚠️  WARNING: Exercise database is empty!")
+        print("📝 Run 'python feature/dev2_exercise_library/initialize_exercises.py' to populate it")
 
-    # Инициализируем сессию для nutrition_bot
     from feature.nutrition_tracking.services import nutrition_bot
     await nutrition_bot.ensure_session()
     
@@ -72,7 +74,7 @@ async def main():
 
     # Запускаем поллинг
     await Dispatcher.start_polling(bot)
-
+    
 
 @main_router.message(CommandStart())
 async def on_start(m: Message):
@@ -84,35 +86,16 @@ async def on_start(m: Message):
         last_name=m.from_user.last_name
     )
 
-    await m.answer(f"Hello, {m.from_user.first_name}! I will help you log workouts. To see all functions: /help")
+    await m.answer(f"Привет, {m.from_user.first_name}! Я помогу логировать тренировки.")
 
 @main_router.message(Command("help"))
 async def on_help(m: Message):
-    help_text = """
-Available commands:
-
-📝 Workouts:
-/log BenchPress 3x10x50 — log an exercise
-/today — show today's entries
-
-🍽️ Nutrition:
-/nutrition — open the nutrition tracker menu
-
-🔔 Notifications:
-/notification — set up workout reminders
-
-⏱️ Rest Timers:
-/timer — manage rest timers
-
-📊 Statistics:
-/statistics — view progress statistics
-    """
-    await m.answer(help_text)
+    await m.answer("Примеры:\n/log BenchPress 3x10x50\n/today — показать сегодняшние записи")
 
 # Эхо-хэндлер тоже можно оставить здесь или вынести в основной main.py
 @echo_router.message(F.text)
 async def echo(m: Message):
-    await m.answer(f"You wrote: {m.text}\nUse /help for a list of commands.")
+    await m.answer(f"Ты написал: {m.text}")
 
 if __name__ == "__main__":
     asyncio.run(main())
