@@ -95,11 +95,72 @@ async def on_start(m: Message):
         last_name=m.from_user.last_name
     )
 
-    await m.answer(f"Привет, {m.from_user.first_name}! Я помогу логировать тренировки.")
+    welcome_text = f"""
+👋 <b>Hey, {m.from_user.first_name}!</b>
+
+I'm your personal fitness assistant! I'll help you with:
+
+🏋️ <b>Workout Tracking</b>
+   • Log exercises and sets
+   • Create custom workout routines
+   • View training history
+
+📊 <b>Progress Monitoring</b>
+   • Analyze statistics
+   • Track personal records
+   • Visualize results
+
+🍎 <b>Nutrition Control</b>
+   • Count calories and macros
+   • Keep food diary
+
+⏱️ <b>Time Management</b>
+   • Rest timers between sets
+   • Workout reminders
+
+📚 <b>Exercise Library</b>
+   • Database of 90 exercises
+   • Detailed technique instructions
+
+Use /help to see all available commands!
+"""
+    
+    await m.answer(welcome_text, parse_mode="HTML")
 
 @main_router.message(Command("help"))
 async def on_help(m: Message):
-    await m.answer("Примеры:\n/log BenchPress 3x10x50\n/today — показать сегодняшние записи")
+    help_text = """
+📋 <b>Available Commands:</b>
+
+<b>🏋️ Workouts:</b>
+/log - Log an exercise (e.g., /log BenchPress 3x10x50)
+/today - Show today's workouts
+/statistics - Overall training statistics
+/profile - View your profile
+
+<b>📚 Exercises:</b>
+/exercise - Search exercises in library
+/exercise_stats - Exercise statistics
+
+<b>🎯 Workout Programs:</b>
+/routines - Manage training routines
+
+<b>🍎 Nutrition:</b>
+/nutrition - Track calories and macros
+
+<b>⏱️ Timers:</b>
+/timer - Rest timer between sets
+
+<b>🔔 Notifications:</b>
+/notification - Set up workout reminders
+
+<b>📊 Progress:</b>
+/stats - Detailed progress statistics
+
+<i>Tip: Start with /log command to record your first workout!</i>
+"""
+    
+    await m.answer(help_text, parse_mode="HTML")
 
 # Эхо-хэндлер тоже можно оставить здесь или вынести в основной main.py
 @echo_router.message(F.text)
