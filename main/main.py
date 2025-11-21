@@ -27,6 +27,9 @@ from feature.dev2_exercise_library.exercise_handlers import exercise_router
 from feature.dev3_progress_stats.stats_main import stats_router as dev3_router
 from feature.dev4_custom_routines.handlers.routine_handlers import routine_router
 
+# 🆕 ИМПОРТ БАЗЫ ДАННЫХ ДЛЯ ТАЙМЕРОВ (добавьте эту строку)
+from feature.dev5_rest_timers.database import init_db as init_timer_db
+
 # ... и так далее для dev4, dev5, dev6
 
 load_dotenv()
@@ -80,6 +83,10 @@ async def main():
     # 🆕 ДОБАВЛЯЕМ ЭТИ 2 СТРОКИ:
     from feature.dev4_custom_routines.db.routine_db import routine_db
     print("✅ Routine system initialized")
+    
+    # 🆕 ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ТАЙМЕРОВ (добавьте эти строки)
+    await init_timer_db()
+    print("✅ Timer database initialized")
     
     # Запускаем поллинг
     await Dispatcher.start_polling(bot)
@@ -144,6 +151,7 @@ async def on_help(m: Message):
 
 <b>🎯 Workout Programs:</b>
 /routines - Manage training routines
+/custom_routines - Add custom routines
 
 <b>🍎 Nutrition:</b>
 /nutrition - Track calories and macros

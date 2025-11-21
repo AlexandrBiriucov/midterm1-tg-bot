@@ -19,14 +19,22 @@ from .keyboards import (
 
 router = Router()
 
+def get_user_id(telegram_id: int) -> int:
+    """Get or create internal user_id from telegram_id"""
+    user_id = nutrition_bot.db.get_user_id(telegram_id)
+    if user_id is None:
+        user_id = nutrition_bot.db.add_user(telegram_id)
+    return user_id
+
+
 @router.message(Command("nutrition"))
 async def nutrition_start(message: Message, state: FSMContext):
     """Handle /nutrition command"""
-    user_id = message.from_user.id
+    telegram_id = message.from_user.id
     username = message.from_user.username
     
-    # Add user to database
-    nutrition_bot.db.add_user(user_id, username)
+    # Add user to database or get existing
+    nutrition_bot.db.add_user(telegram_id, username)
     
     welcome_text = """
 🎯 **Welcome to Advanced Nutrition Tracker!** 🎯
@@ -186,10 +194,12 @@ async def handle_portion_input(message: Message, state: FSMContext):
         carbs = food_data['carbs'] * multiplier
         fat = food_data['fat'] * multiplier
         
-        # Log the meal
-        user_id = message.from_user.id
+        # Get internal user_id
+        user_id = get_user_id(message.from_user.id)
+        
+        # Log the meal using food_id
         nutrition_bot.db.log_meal(
-            user_id, meal_type, food_data['fdc_id'], food_data['name'],
+            user_id, food_data['food_id'], meal_type,
             portion_grams, calories, protein, carbs, fat
         )
         
@@ -225,7 +235,7 @@ async def handle_portion_input(message: Message, state: FSMContext):
 @router.callback_query(F.data == "nutrition_daily_summary")
 async def daily_summary_callback(callback: CallbackQuery):
     """Handle daily summary callback"""
-    user_id = callback.from_user.id
+    user_id = get_user_id(callback.from_user.id)
     
     # Get daily intake
     intake = nutrition_bot.db.get_daily_intake(user_id)
@@ -274,7 +284,7 @@ async def daily_summary_callback(callback: CallbackQuery):
 @router.callback_query(F.data == "nutrition_set_goals")
 async def set_goals_callback(callback: CallbackQuery, state: FSMContext):
     """Handle set goals callback - show method selection"""
-    user_id = callback.from_user.id
+    user_id = get_user_id(callback.from_user.id)
     current_goals = nutrition_bot.db.get_user_goals(user_id)
     
     if current_goals:
@@ -402,7 +412,7 @@ async def handle_goal_fat(message: Message, state: FSMContext):
             return
         
         data = await state.get_data()
-        user_id = message.from_user.id
+        user_id = get_user_id(message.from_user.id)
         
         # Save all goals to database
         nutrition_bot.db.set_user_goals(
@@ -593,7 +603,7 @@ async def handle_calculator_goal_type(callback: CallbackQuery, state: FSMContext
     )
     
     # Save to database
-    user_id = callback.from_user.id
+    user_id = get_user_id(callback.from_user.id)
     nutrition_bot.db.set_user_goals(
         user_id,
         goals['calories'],
@@ -639,7 +649,7 @@ Start tracking your meals to reach your goals!
 @router.callback_query(F.data == "nutrition_view_meals")
 async def view_meals_callback(callback: CallbackQuery):
     """Handle view meals callback"""
-    user_id = callback.from_user.id
+    user_id = get_user_id(callback.from_user.id)
     meals = nutrition_bot.db.get_daily_meals(user_id)
     
     if not meals:

@@ -94,74 +94,80 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Users table
+        # Users table - основная таблица пользователей
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS nutrition_users (
-                user_id INTEGER PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER UNIQUE NOT NULL,
                 username TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
-        # Food database table
+        # Food database table (кэш для USDA API)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS foods (
-                fdc_id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fdc_id INTEGER UNIQUE NOT NULL,
                 name TEXT NOT NULL,
-                calories_per_100g REAL,
-                protein_per_100g REAL,
-                carbs_per_100g REAL,
-                fat_per_100g REAL,
-                fiber_per_100g REAL,
-                sodium_per_100g REAL,
-                cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                calories_per_100g REAL NOT NULL DEFAULT 0,
+                protein_per_100g REAL NOT NULL DEFAULT 0,
+                carbs_per_100g REAL NOT NULL DEFAULT 0,
+                fat_per_100g REAL NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        ''')
+        
+        # Create index for faster fdc_id lookups
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_foods_fdc_id 
+            ON foods(fdc_id)
         ''')
         
         # User goals table
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS nutrition_user_goals (
-                user_id INTEGER PRIMARY KEY,
-                daily_calories REAL,
-                daily_protein REAL,
-                daily_carbs REAL,
-                daily_fat REAL,
+            CREATE TABLE IF NOT EXISTS user_goals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER UNIQUE NOT NULL,
+                daily_calories REAL NOT NULL,
+                daily_protein REAL NOT NULL,
+                daily_carbs REAL NOT NULL,
+                daily_fat REAL NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES nutrition_users (user_id)
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         ''')
         
         # Daily meals table
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS nutrition_meals (
+            CREATE TABLE IF NOT EXISTS meals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                date DATE,
-                meal_type TEXT,
-                fdc_id INTEGER,
-                food_name TEXT,
-                portion_grams REAL,
-                calories REAL,
-                protein REAL,
-                carbs REAL,
-                fat REAL,
-                logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES nutrition_users (user_id),
-                FOREIGN KEY (fdc_id) REFERENCES foods (fdc_id)
+                user_id INTEGER NOT NULL,
+                food_id INTEGER NOT NULL,
+                meal_type TEXT NOT NULL CHECK(meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+                portion_grams REAL NOT NULL,
+                calories REAL NOT NULL,
+                protein REAL NOT NULL,
+                carbs REAL NOT NULL,
+                fat REAL NOT NULL,
+                meal_date DATE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE RESTRICT
             )
         ''')
         
-        conn.commit()
-        conn.close()
-    
-    def add_user(self, user_id: int, username: str = None):
-        """Add new user to database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        # Create indexes for better query performance
         cursor.execute('''
-            INSERT OR IGNORE INTO nutrition_users (user_id, username) 
-            VALUES (?, ?)
-        ''', (user_id, username))
+            CREATE INDEX IF NOT EXISTS idx_meals_user_date 
+            ON meals(user_id, meal_date)
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_meals_date 
+            ON meals(meal_date)
+        ''')
+        
         conn.commit()
         conn.close()
     
@@ -175,14 +181,12 @@ class DatabaseManager:
         
         cursor.execute('''
             INSERT OR REPLACE INTO foods 
-            (fdc_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, 
-             fat_per_100g, fiber_per_100g, sodium_per_100g)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (fdc_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g)
+            VALUES (?, ?, ?, ?, ?, ?)
         ''', (
             fdc_id, name, food_data.get('calories', 0),
             food_data.get('protein', 0), food_data.get('carbs', 0),
-            food_data.get('fat', 0), food_data.get('fiber', 0),
-            food_data.get('sodium', 0)
+            food_data.get('fat', 0)
         ))
         
         conn.commit()
@@ -203,9 +207,7 @@ class DatabaseManager:
                 'calories': result[2],
                 'protein': result[3],
                 'carbs': result[4],
-                'fat': result[5],
-                'fiber': result[6],
-                'sodium': result[7]
+                'fat': result[5]
             }
         return None
     
@@ -289,10 +291,10 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT meal_type, food_name, portion_grams, calories, protein, carbs, fat, logged_at
+            SELECT meal_type, food_name, portion_grams, calories, protein, carbs, fat
             FROM nutrition_meals 
             WHERE user_id = ? AND date = ?
-            ORDER BY logged_at DESC
+            ORDER BY id DESC
         ''', (user_id, target_date))
         
         results = cursor.fetchall()
@@ -307,8 +309,7 @@ class DatabaseManager:
                 'calories': row[3],
                 'protein': row[4],
                 'carbs': row[5],
-                'fat': row[6],
-                'logged_at': row[7]
+                'fat': row[6]
             })
         
         return meals
@@ -318,7 +319,6 @@ class NutritionBot:
     def __init__(self):
         self.session = None
         self.db = DatabaseManager()
-        self.temp_food_data = {}
         self.calculator = NutritionCalculator()
     
     async def ensure_session(self):
@@ -395,9 +395,7 @@ class NutritionBot:
             'calories': 0,
             'protein': 0,
             'carbs': 0,
-            'fat': 0,
-            'fiber': 0,
-            'sodium': 0
+            'fat': 0
         }
         
         nutrients = api_data.get('foodNutrients', [])
@@ -414,10 +412,6 @@ class NutritionBot:
                 food_data['carbs'] = value
             elif nutrient_id == 1004:  # Total lipid (fat)
                 food_data['fat'] = value
-            elif nutrient_id == 1079:  # Fiber
-                food_data['fiber'] = value
-            elif nutrient_id == 1093:  # Sodium
-                food_data['sodium'] = value / 1000  # Convert mg to g
         
         return food_data
 

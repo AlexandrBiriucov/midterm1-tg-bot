@@ -4,11 +4,18 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from .services import timers, settings, Timer, presets
+from .services import timers, settings, Timer
 from .keyboards import (
     build_timer_keyboard, 
     build_presets_menu_keyboard,
     build_presets_list_keyboard
+)
+from .database import (
+    add_preset,
+    get_user_presets,
+    update_preset,
+    delete_preset,
+    get_presets_count
 )
 
 router = Router()
@@ -189,9 +196,9 @@ async def preset_back(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "preset_add")
 async def preset_add(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
+    presets_count = await get_presets_count(user_id)
     
-    if len(user_presets) >= 10:
+    if presets_count >= 10:
         await callback.answer("⚠️ Maximum 10 presets allowed", show_alert=True)
         return
     
@@ -254,13 +261,12 @@ async def process_preset_time(message: Message, state: FSMContext):
     preset_name = data.get("preset_name")
     
     user_id = message.from_user.id
-    if user_id not in presets:
-        presets[user_id] = []
+    success = await add_preset(user_id, preset_name, total_seconds)
     
-    presets[user_id].append({
-        "name": preset_name,
-        "seconds": total_seconds
-    })
+    if not success:
+        await message.answer("❌ Error saving preset. Please try again.")
+        await state.clear()
+        return
     
     h_display = total_seconds // 3600
     m_display = (total_seconds % 3600) // 60
@@ -278,7 +284,7 @@ async def process_preset_time(message: Message, state: FSMContext):
 @router.callback_query(F.data == "preset_list")
 async def preset_list(callback: CallbackQuery):
     user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
+    user_presets = await get_user_presets(user_id)
     
     if not user_presets:
         await callback.message.edit_text(
@@ -288,7 +294,7 @@ async def preset_list(callback: CallbackQuery):
     else:
         await callback.message.edit_text(
             "📋 Your presets (click to load):",
-            reply_markup=build_presets_list_keyboard(user_id, action="load")
+            reply_markup=build_presets_list_keyboard(user_id, user_presets, action="load")
         )
     await callback.answer()
 
@@ -296,14 +302,15 @@ async def preset_list(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("preset_load_"))
 async def preset_load(callback: CallbackQuery):
     user_id = callback.from_user.id
-    preset_index = int(callback.data.split("_")[2])
+    preset_id = int(callback.data.split("_")[2])
     
-    user_presets = presets.get(user_id, [])
-    if preset_index >= len(user_presets):
+    user_presets = await get_user_presets(user_id)
+    preset = next((p for p in user_presets if p["id"] == preset_id), None)
+    
+    if not preset:
         await callback.answer("❌ Preset not found", show_alert=True)
         return
     
-    preset = user_presets[preset_index]
     total_seconds = preset["seconds"]
     
     hours = total_seconds // 3600
@@ -326,7 +333,7 @@ async def preset_load(callback: CallbackQuery):
 @router.callback_query(F.data == "preset_replace")
 async def preset_replace(callback: CallbackQuery):
     user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
+    user_presets = await get_user_presets(user_id)
     
     if not user_presets:
         await callback.message.edit_text(
@@ -336,16 +343,16 @@ async def preset_replace(callback: CallbackQuery):
     else:
         await callback.message.edit_text(
             "✏️ Select preset to replace:",
-            reply_markup=build_presets_list_keyboard(user_id, action="replace")
+            reply_markup=build_presets_list_keyboard(user_id, user_presets, action="replace")
         )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("preset_replace_"))
 async def preset_replace_select(callback: CallbackQuery, state: FSMContext):
-    preset_index = int(callback.data.split("_")[2])
+    preset_id = int(callback.data.split("_")[2])
     
-    await state.update_data(replace_index=preset_index)
+    await state.update_data(replace_id=preset_id)
     await state.set_state(PresetStates.waiting_for_replace_name)
     await callback.message.edit_text("Enter new preset name:")
     await callback.answer()
@@ -398,19 +405,15 @@ async def process_replace_time(message: Message, state: FSMContext):
     
     data = await state.get_data()
     preset_name = data.get("preset_name")
-    replace_index = data.get("replace_index")
+    preset_id = data.get("replace_id")
     
     user_id = message.from_user.id
+    success = await update_preset(preset_id, user_id, preset_name, total_seconds)
     
-    if user_id not in presets or replace_index >= len(presets[user_id]):
-        await message.answer("❌ Preset not found")
+    if not success:
+        await message.answer("❌ Error updating preset")
         await state.clear()
         return
-    
-    presets[user_id][replace_index] = {
-        "name": preset_name,
-        "seconds": total_seconds
-    }
     
     h_display = total_seconds // 3600
     m_display = (total_seconds % 3600) // 60
@@ -428,7 +431,7 @@ async def process_replace_time(message: Message, state: FSMContext):
 @router.callback_query(F.data == "preset_delete")
 async def preset_delete(callback: CallbackQuery):
     user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
+    user_presets = await get_user_presets(user_id)
     
     if not user_presets:
         await callback.message.edit_text(
@@ -438,7 +441,7 @@ async def preset_delete(callback: CallbackQuery):
     else:
         await callback.message.edit_text(
             "🗑 Select preset to delete:",
-            reply_markup=build_presets_list_keyboard(user_id, action="delete")
+            reply_markup=build_presets_list_keyboard(user_id, user_presets, action="delete")
         )
     await callback.answer()
 
@@ -446,17 +449,23 @@ async def preset_delete(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("preset_delete_"))
 async def preset_delete_confirm(callback: CallbackQuery):
     user_id = callback.from_user.id
-    preset_index = int(callback.data.split("_")[2])
+    preset_id = int(callback.data.split("_")[2])
     
-    user_presets = presets.get(user_id, [])
-    if preset_index >= len(user_presets):
+    user_presets = await get_user_presets(user_id)
+    preset = next((p for p in user_presets if p["id"] == preset_id), None)
+    
+    if not preset:
         await callback.answer("❌ Preset not found", show_alert=True)
         return
     
-    deleted_preset = user_presets.pop(preset_index)
+    success = await delete_preset(preset_id, user_id)
     
-    await callback.message.edit_text(
-        f"✅ Preset '{deleted_preset['name']}' deleted!",
-        reply_markup=build_presets_menu_keyboard()
-    )
+    if success:
+        await callback.message.edit_text(
+            f"✅ Preset '{preset['name']}' deleted!",
+            reply_markup=build_presets_menu_keyboard()
+        )
+    else:
+        await callback.answer("❌ Error deleting preset", show_alert=True)
+    
     await callback.answer()

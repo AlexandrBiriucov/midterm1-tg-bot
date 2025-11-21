@@ -15,9 +15,6 @@ class Timer:
         elapsed = (datetime.now() - self.start_time).total_seconds()
         return max(0, self.duration - int(elapsed))
 
-# Хранилища
+# Хранилища (только для активных таймеров и настроек сессии)
 timers: dict[int, Timer] = {}
 settings: dict[int, dict[str, int]] = {}
-
-# Presets storage: user_id -> list of {"name": str, "seconds": int}
-presets: dict[int, list[dict]] = {}
