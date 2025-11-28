@@ -1,6 +1,0 @@
-sqlalchemy
-pytest
-
-aiogram
-python-dotenv
-SQLAlchemy

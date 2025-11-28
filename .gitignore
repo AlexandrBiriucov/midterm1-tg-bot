@@ -1,66 +1,65 @@
-# --- Python cache and build ---
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+data/gymbot.db
+data/gymbot.db-journal
+*.db
+*.db-journal
+
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.egg
-*.egg-info/
-dist/
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
 .eggs/
-.env
-.venv
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
 venv/
-ENV/
 env/
+ENV/
+env.bak/
+venv.bak/
 
-# --- OS crap ---
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# --- IDE/project stuff ---
+# IDE
 .vscode/
 .idea/
-*.iml
-
-# --- Logs and temp files ---
-*.log
-*.tmp
-*.bak
 *.swp
 *.swo
-*.~*
+*~
+.DS_Store
 
-# --- Databases ---
-*.db
-*.sqlite
-*.sqlite3
+# Logs
+*.log
+logs/
 
-# --- Images and media (optional) ---
-*.png
-*.jpg
-*.jpeg
-*.gif
+# Generated files
+data/graphs/*.png
+heatmap.png
+progress.png
 
-# --- Environment / credentials ---
-.env
-*.env
-.env.*
-*.key
-*.pem
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
-# --- Jupyter / Notebooks ---
-.ipynb_checkpoints/
-
-# --- Others you might not need in repo ---
-__MACOSX/
-*.spec
-*.csv
-*.json
-*.pdf
-*.xlsx
-*.mp4
-*.zip
-*.tar
-*.gz
+# Docker
+*.env.production

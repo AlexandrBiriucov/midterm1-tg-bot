@@ -1,9 +1,0 @@
-C:\telegram-gym-bot\main\feature\dev3-progress-stats>pytest -v test_1rm.py
-
-
-
-testing telegram  bot token : 8350904647:AAGZSMB05lFDEBeo2vSF-uv6foL444gU1qE
-
-dan's token TELEGRAM_TOKEN=8375991304:AAHrdCsrFpwMcRYaNpBPxb9iyDa9ytnPTd8
-
-python -m main.feature.dev1_workout_tracking.main
