@@ -1,6 +1,5 @@
 # 🧾 CHANGELOG.md
 
-## [v0.3.0] — October 31, 2024
 
 ### 🎯 Major Overview
 
@@ -170,46 +169,24 @@ Introduced flexible training routines — both preset and user-made.
 
 ---
 
-## 🗓️ October 22, 2024 — Timers, Notifications & Nutrition
+## 🗓️ October 22, 2024 — Timers, Notifications & Nutrition (  [#3](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3) and [#5](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/5) by [Orm-Max](https://github.com/Orm-Max),)
 
 ### ⏱️ Timer System
 
-- Added customizable timer presets
-    
-- Up to 10 named presets per user
-    
-- Instant editing and deletion
-    
-- Improved visual layout and feedback
+- Added customizable timer presets ( [4dfc909](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3/commits/4dfc909a0e16c255f062605d53bca8f233a63592) )
     
 
-### 🍎 Nutrition Tracking
+### 🍎 Nutrition Tracking 
+- Integrated /nutrition feature to new project structure ( [d5e29b2](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3/commits/d5e29b2de9f6f9f8d73be20699cbf094560d44a5) )
 
-- Integrated BMR & TDEE calculator
-    
-- Goal-based calorie recommendations (loss/maintain/gain)
-    
-- Real-time macro tracking with adjustable targets
-    
-- `/nutrition` command for daily summaries
-    
+- Integrated BMR & TDEE calculator ( [bc2dedb](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3/commits/bc2dedb29218c9dab6242a3dd9ff3c08d6ecdf6e) )
 
 ### 🔔 Notifications
+    
+- Integrated /notification feature to new project structure ( [0cf7d6d](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3/commits/0cf7d6d18189d030947c0d59d3d35dfe71c635f6) )
 
-- Custom reminders from 1 min to 24 h before workouts
     
-- Manage multiple reminders
-    
-- Improved persistence and reliability
-    
-
-### 🧩 Technical Fixes
-
-- Resolved timer state bugs
-    
-- Fixed database issues in nutrition logs
-    
-- Unified timer and notification architecture
+- Added a new "Change Trainings" feature ( [bff9adc](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/5/commits/bff9adc9bc00122601c027f51dc5babe88c223e7) )
     
 
 ---
@@ -295,18 +272,3 @@ Introduced flexible training routines — both preset and user-made.
 - Nutrition rate-limiting pending
     
 
----
-
-## 🚀 Coming in v0.4.0
-
-- Social workout sharing & competitions
-    
-- Routine analytics and tracking
-    
-- Full multilingual support
-    
-- Mobile-friendly workout logging
-    
-- Integration with wearables
-    
-- Community exercise contributions
