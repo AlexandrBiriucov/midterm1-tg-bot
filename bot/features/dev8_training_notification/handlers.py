@@ -1,3 +1,7 @@
+"""
+Handlers for training notifications feature.
+All database operations integrated via services module.
+"""
 import re
 import asyncio
 from datetime import time
@@ -16,14 +20,12 @@ from .keyboards import (
     day_names,
     day_codes
 )
-from .database import (
-    init_db,
+from .services import (
     save_training,
     load_trainings,
     update_training,
-    delete_training
-)
-from .services import (
+    delete_training,
+    get_notification_count,
     reminder_loop,
     load_schedules_from_db,
     get_schedules,
@@ -37,22 +39,22 @@ router = Router()
 
 day_map = {'Mo': 0, 'Tu': 1, 'We': 2, 'Th': 3, 'Fr': 4, 'Sa': 5, 'Su': 6}
 
+# Maximum notifications per user
+MAX_NOTIFICATIONS = 5
+
 
 @router.message(Command("notification"))
 async def notification_start(message: Message, state: FSMContext):
     """Handle /notification command"""
     chat_id = message.from_user.id
     
-    # Initialize database
-    init_db()
-    
-    # Load existing schedules
+    # Load existing schedules from unified database
     load_schedules_from_db(message.bot, chat_id)
     
     await state.clear()
     
     await message.answer(
-        "🔔 <b>Training Notifications</b>\n\n"
+        "📅 <b>Training Notifications</b>\n\n"
         "Manage your training reminders. Set custom reminder times for each workout!\n\n"
         "Choose an action:",
         reply_markup=create_main_keyboard(),
@@ -67,7 +69,7 @@ async def handle_back_to_main(callback: CallbackQuery, state: FSMContext):
     
     try:
         await callback.message.edit_text(
-            "🔔 <b>Training Notifications</b>\n\n"
+            "📅 <b>Training Notifications</b>\n\n"
             "Manage your training reminders. Set custom reminder times for each workout!\n\n"
             "Choose an action:",
             reply_markup=create_main_keyboard(),
@@ -75,7 +77,7 @@ async def handle_back_to_main(callback: CallbackQuery, state: FSMContext):
         )
     except Exception:
         await callback.message.answer(
-            "🔔 <b>Training Notifications</b>\n\n"
+            "📅 <b>Training Notifications</b>\n\n"
             "Manage your training reminders. Set custom reminder times for each workout!\n\n"
             "Choose an action:",
             reply_markup=create_main_keyboard(),
@@ -456,15 +458,17 @@ async def finalize_training(chat_id: int, message_obj, state: FSMContext, remind
     reminder_str = format_reminder(reminder_minutes)
     
     if action == 'add':
-        schedules = get_schedules(chat_id)
+        # Check if user has reached maximum notifications
+        current_count = get_notification_count(chat_id)
         
-        if len(schedules) >= 5:
+        if current_count >= MAX_NOTIFICATIONS:
+            schedules = get_schedules(chat_id)
             lst = ''.join([f"• {day_names[d]} {t.hour:02}:{t.minute:02} ({format_reminder(r)} before)\n" 
                           for d, t, r, _ in schedules])
             
             await message_obj.answer(
                 f"❌ <b>Maximum Trainings Reached</b>\n\n"
-                f"Already 5 trainings:\n{lst}\n"
+                f"Already {MAX_NOTIFICATIONS} trainings:\n{lst}\n"
                 f"💡 Use 'Replace Training' to modify existing notifications.",
                 reply_markup=create_main_keyboard(),
                 parse_mode="HTML"
@@ -472,11 +476,22 @@ async def finalize_training(chat_id: int, message_obj, state: FSMContext, remind
             await state.clear()
             return
         
-        # Save to database
-        save_training(chat_id, weekday, train_time, reminder_minutes)
+        # Save to unified database
+        success = save_training(chat_id, weekday, train_time, reminder_minutes)
+        
+        if not success:
+            await message_obj.answer(
+                "❌ Error saving notification. Please try again.",
+                reply_markup=create_main_keyboard(),
+                parse_mode="HTML"
+            )
+            await state.clear()
+            return
         
         # Create background task
-        task = asyncio.create_task(reminder_loop(message_obj.bot, chat_id, weekday, train_time, reminder_minutes))
+        task = asyncio.create_task(
+            reminder_loop(message_obj.bot, chat_id, weekday, train_time, reminder_minutes)
+        )
         add_schedule(chat_id, weekday, train_time, reminder_minutes, task)
         
         await message_obj.answer(
@@ -502,11 +517,22 @@ async def finalize_training(chat_id: int, message_obj, state: FSMContext, remind
             await state.clear()
             return
         
-        # Update in database
-        update_training(chat_id, num, weekday, train_time, reminder_minutes)
+        # Update in unified database
+        success = update_training(chat_id, num, weekday, train_time, reminder_minutes)
+        
+        if not success:
+            await message_obj.answer(
+                "❌ Error updating notification. Please try again.",
+                reply_markup=create_main_keyboard(),
+                parse_mode="HTML"
+            )
+            await state.clear()
+            return
         
         # Create new background task
-        task = asyncio.create_task(reminder_loop(message_obj.bot, chat_id, weekday, train_time, reminder_minutes))
+        task = asyncio.create_task(
+            reminder_loop(message_obj.bot, chat_id, weekday, train_time, reminder_minutes)
+        )
         update_schedule(chat_id, num, weekday, train_time, reminder_minutes, task)
         
         await message_obj.answer(
