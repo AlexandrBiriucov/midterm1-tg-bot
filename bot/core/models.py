@@ -146,6 +146,47 @@ class Workout(Base):
 
     def __repr__(self):
         return f"<Workout(workout_id={self.workout_id}, exercise={self.exercise}, {self.sets}x{self.reps}x{self.weight}kg)>"
+# ============================================================================
+# EXERCISE LIBRARY MODELS - Dev2 feature
+# ============================================================================
+
+class Exercise(Base):
+    """Exercise library - comprehensive exercise database"""
+    __tablename__ = "exercises"
+    
+    exercise_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    muscle_group: Mapped[str] = mapped_column(String(100), nullable=False)
+    muscle: Mapped[str] = mapped_column(String(100), nullable=False)
+    equipment: Mapped[str] = mapped_column(String(100), nullable=False)
+    difficulty: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tips: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Timestamp
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+    
+    # Relationships
+    workout_logs: Mapped[list["Workout"]] = relationship(
+        "Workout",
+        back_populates="exercise_ref"
+    )
+    
+    # Indexes for fast filtering
+    __table_args__ = (
+        Index('idx_muscle_group', 'muscle_group'),
+        Index('idx_equipment', 'equipment'),
+        Index('idx_difficulty', 'difficulty'),
+        Index('idx_muscle', 'muscle'),
+    )
+
+    def __repr__(self):
+        return f"<Exercise(exercise_id={self.exercise_id}, name={self.name}, muscle_group={self.muscle_group})>"
+
     
 # ============================================================================
 # CUSTOM ROUTINES MODELS - Dev4 feature
