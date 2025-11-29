@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  gymbot:
+    build: .
+    container_name: gymbot
+    restart: unless-stopped
+    
+    # Environment variables (loaded from .env file)
+    env_file:
+      - .env
+    
+    # Persistent volume for SQLite database
+    volumes:
+      - ./data:/app/data
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Resource limits (optional, adjust based on your droplet size)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
