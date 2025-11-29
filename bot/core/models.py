@@ -189,3 +189,136 @@ class TimerPreset(Base):
     
     def __repr__(self):
         return f"<TimerPreset(timer_preset_id={self.timer_preset_id}, name={self.name}, {self.hours}h {self.minutes}m {self.seconds}s)>"
+    
+    # ============================================================================
+# NUTRITION TRACKING MODELS - Dev7 feature
+# ============================================================================
+
+class NutritionGoal(Base):
+    """User's daily nutrition goals"""
+    __tablename__ = "nutrition_goals"
+    
+    nutrition_goal_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+    
+    # Daily nutrition targets
+    daily_calories: Mapped[float] = mapped_column(Float, nullable=False)
+    daily_protein: Mapped[float] = mapped_column(Float, nullable=False)
+    daily_carbs: Mapped[float] = mapped_column(Float, nullable=False)
+    daily_fat: Mapped[float] = mapped_column(Float, nullable=False)
+    
+    # Optional: Store calculation metadata
+    bmr: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tdee: Mapped[float | None] = mapped_column(Float, nullable=True)
+    goal_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # loss/maintain/gain
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="nutrition_goals")
+    
+    def __repr__(self):
+        return f"<NutritionGoal(nutrition_goal_id={self.nutrition_goal_id}, user_id={self.user_id}, calories={self.daily_calories})>"
+
+
+class FoodCache(Base):
+    """Cache for USDA food data to reduce API calls"""
+    __tablename__ = "food_cache"
+    
+    food_cache_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fdc_id: Mapped[int] = mapped_column(Integer, unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    
+    # Nutrition per 100g
+    calories_per_100g: Mapped[float] = mapped_column(Float, default=0)
+    protein_per_100g: Mapped[float] = mapped_column(Float, default=0)
+    carbs_per_100g: Mapped[float] = mapped_column(Float, default=0)
+    fat_per_100g: Mapped[float] = mapped_column(Float, default=0)
+    fiber_per_100g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sodium_per_100g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    
+    # Timestamp
+    cached_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+    
+    # Relationships
+    nutrition_meals: Mapped[list["NutritionMeal"]] = relationship(
+        "NutritionMeal",
+        back_populates="food_cache"
+    )
+    
+    def __repr__(self):
+        return f"<FoodCache(food_cache_id={self.food_cache_id}, fdc_id={self.fdc_id}, name={self.name})>"
+
+
+class NutritionMeal(Base):
+    """Daily meal log entries"""
+    __tablename__ = "nutrition_meals"
+    
+    nutrition_meal_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+    
+    # Meal info
+    date: Mapped[date_type] = mapped_column(Date, index=True, nullable=False)
+    meal_type: Mapped[str] = mapped_column(String(20), nullable=False)  # breakfast/lunch/dinner/snack
+    
+    # Food data (reference to cache)
+    food_cache_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("food_cache.food_cache_id", ondelete="CASCADE"),
+        nullable=False
+    )
+    fdc_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    food_name: Mapped[str] = mapped_column(String(300), nullable=False)
+    portion_grams: Mapped[float] = mapped_column(Float, nullable=False)
+    
+    # Calculated nutrition for this portion
+    calories: Mapped[float] = mapped_column(Float, nullable=False)
+    protein: Mapped[float] = mapped_column(Float, nullable=False)
+    carbs: Mapped[float] = mapped_column(Float, nullable=False)
+    fat: Mapped[float] = mapped_column(Float, nullable=False)
+    
+    # Timestamp
+    logged_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True
+    )
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="nutrition_meals")
+    food_cache: Mapped["FoodCache"] = relationship(
+        "FoodCache",
+        back_populates="nutrition_meals"
+    )
+    
+    # Indexes for efficient queries
+    __table_args__ = (
+        Index('idx_user_date', 'user_id', 'date'),
+        Index('idx_user_meal_type', 'user_id', 'meal_type'),
+    )
+    
+    def __repr__(self):
+        return f"<NutritionMeal(nutrition_meal_id={self.nutrition_meal_id}, user_id={self.user_id}, food={self.food_name}, {self.portion_grams}g)>"
