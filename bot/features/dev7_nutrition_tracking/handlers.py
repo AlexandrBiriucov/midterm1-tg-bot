@@ -1,10 +1,14 @@
+"""
+Nutrition tracking handlers for dev7 feature.
+Updated to use unified database.
+"""
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from datetime import date
 
-from .services import NutritionBot, nutrition_bot
+from .services import nutrition_bot
 from .states import NutritionStates
 from .keyboards import (
     create_main_menu,
@@ -25,15 +29,15 @@ async def nutrition_start(message: Message, state: FSMContext):
     user_id = message.from_user.id
     username = message.from_user.username
     
-    # Add user to database
-    nutrition_bot.db.add_user(user_id, username)
+    # Ensure user exists in unified database
+    nutrition_bot.db.ensure_user_exists(user_id, username)
     
     welcome_text = """
 🎯 **Welcome to Advanced Nutrition Tracker!** 🎯
 
 Track your daily nutrition with comprehensive features:
 
-🔍 **Add Food** - Search and log meals
+🍔 **Add Food** - Search and log meals
 📊 **Daily Summary** - See your progress
 🎯 **Set Goals** - Define nutrition targets
 📋 **View Meals** - Review logged foods
@@ -186,7 +190,7 @@ async def handle_portion_input(message: Message, state: FSMContext):
         carbs = food_data['carbs'] * multiplier
         fat = food_data['fat'] * multiplier
         
-        # Log the meal
+        # Log the meal using unified database
         user_id = message.from_user.id
         nutrition_bot.db.log_meal(
             user_id, meal_type, food_data['fdc_id'], food_data['name'],
@@ -227,10 +231,10 @@ async def daily_summary_callback(callback: CallbackQuery):
     """Handle daily summary callback"""
     user_id = callback.from_user.id
     
-    # Get daily intake
+    # Get daily intake from unified database
     intake = nutrition_bot.db.get_daily_intake(user_id)
     
-    # Get user goals
+    # Get user goals from unified database
     goals = nutrition_bot.db.get_user_goals(user_id)
     
     response = f"""
@@ -294,8 +298,8 @@ async def set_goals_callback(callback: CallbackQuery, state: FSMContext):
 
 Choose your preferred method to set your goals:
 
-✍️ **Enter Manually** - Input your own targets
-🧮 **Food Calculator** - Calculate based on your body metrics and goals
+✏️ **Enter Manually** - Input your own targets
+🧮 **Calculator** - Calculate based on your body metrics and goals
         """
     
     keyboard = create_goal_setting_method_keyboard()
@@ -308,7 +312,7 @@ Choose your preferred method to set your goals:
 async def goal_manual_callback(callback: CallbackQuery, state: FSMContext):
     """Start manual goal setting"""
     response = """
-✍️ **Manual Goal Setting**
+✏️ **Manual Goal Setting**
 
 **Enter your daily calorie goal:**
 *Example: 2000*
@@ -404,7 +408,7 @@ async def handle_goal_fat(message: Message, state: FSMContext):
         data = await state.get_data()
         user_id = message.from_user.id
         
-        # Save all goals to database
+        # Save all goals to unified database
         nutrition_bot.db.set_user_goals(
             user_id, 
             data['goal_calories'], 
@@ -592,14 +596,17 @@ async def handle_calculator_goal_type(callback: CallbackQuery, state: FSMContext
         goal_type=goal_type
     )
     
-    # Save to database
+    # Save to unified database
     user_id = callback.from_user.id
     nutrition_bot.db.set_user_goals(
         user_id,
         goals['calories'],
         goals['protein'],
         goals['carbs'],
-        goals['fat']
+        goals['fat'],
+        bmr=goals['bmr'],
+        tdee=goals['tdee'],
+        goal_type=goal_type
     )
     
     goal_labels = {
