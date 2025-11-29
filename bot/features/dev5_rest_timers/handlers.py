@@ -1,146 +1,318 @@
+"""
+Handlers for timer functionality.
+Rest timers between sets and custom timer presets.
+"""
 import asyncio
+from datetime import datetime
 from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from .services import timers, settings, Timer, presets
+
+from .states import TimerPresetForm
 from .keyboards import (
-    build_timer_keyboard, 
-    build_presets_menu_keyboard,
-    build_presets_list_keyboard
+    build_timer_keyboard,
+    presets_menu_keyboard,
+    preset_list_keyboard
 )
+from .services import (
+    add_timer_preset,
+    get_user_timer_presets,
+    get_timer_preset_by_id,
+    delete_timer_preset,
+    update_timer_preset,
+    parse_time_string,
+    format_time_display
+)
+from bot.features.dev1_workout_tracking.services import get_or_create_user
 
-router = Router()
+router = Router(name="timer")
 
 
-class PresetStates(StatesGroup):
-    waiting_for_preset_name = State()
-    waiting_for_preset_time = State()
-    waiting_for_replace_index = State()
-    waiting_for_replace_name = State()
-    waiting_for_replace_time = State()
+# ==========================================
+# TIMER CLASS
+# ==========================================
+
+class Timer:
+    """Simple timer class for tracking time"""
+    def __init__(self, duration_seconds: int):
+        self.duration = duration_seconds
+        self.start_time = None
+        self.task = None
+        self.message_id = None  # Store message ID for updating
+
+    def start(self):
+        self.start_time = datetime.now()
+
+    def remaining_seconds(self) -> int:
+        if not self.start_time:
+            return self.duration
+        elapsed = (datetime.now() - self.start_time).total_seconds()
+        return max(0, self.duration - int(elapsed))
 
 
-async def refresh_config_message(callback: CallbackQuery, user_id: int):
+# In-memory storage for active timers and user settings
+active_timers: dict[int, Timer] = {}
+timer_settings: dict[int, dict[str, int]] = {}
+
+
+# ==========================================
+# HELPER FUNCTIONS
+# ==========================================
+
+async def refresh_timer_message(callback: CallbackQuery, user_id: int):
+    """Refresh the timer configuration message"""
+    settings = timer_settings.get(user_id, {"hours": 0, "minutes": 0, "seconds": 0})
     await callback.message.edit_text(
-        "Hello! 👋 Set your timer:",
-        reply_markup=build_timer_keyboard(user_id)
+        "⏱ Configure your timer:",
+        reply_markup=build_timer_keyboard(
+            settings["hours"],
+            settings["minutes"],
+            settings["seconds"]
+        )
     )
 
-# ==== Start ====
-@router.message(Command("timer"))
-async def cmd_start(message: Message):
-    user_id = message.from_user.id
-    settings[user_id] = {"hours": 0, "minutes": 0, "seconds": 0}
-    await message.answer("Hello! 👋 Set your timer:", reply_markup=build_timer_keyboard(user_id))
 
-# ==== Increment / Decrement Handlers ====
-@router.callback_query(F.data == "add_hour")
+def init_timer_settings(user_id: int):
+    """Initialize timer settings for user if not exists"""
+    if user_id not in timer_settings:
+        timer_settings[user_id] = {"hours": 0, "minutes": 0, "seconds": 0}
+
+
+def build_stop_timer_keyboard() -> InlineKeyboardMarkup:
+    """Build keyboard with Stop Timer button"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⏹ Stop Timer", callback_data="timer_stop_active")]
+    ])
+
+
+# ==========================================
+# COMMAND HANDLERS
+# ==========================================
+
+@router.message(Command("timer"))
+async def cmd_timer(message: Message):
+    """Start timer interface"""
+    user_id = message.from_user.id
+    
+    # Ensure user exists in database
+    get_or_create_user(
+        telegram_id=user_id,
+        username=message.from_user.username,
+        first_name=message.from_user.first_name,
+        last_name=message.from_user.last_name
+    )
+    
+    init_timer_settings(user_id)
+    
+    await message.answer(
+        "⏱ Configure your timer:",
+        reply_markup=build_timer_keyboard(
+            timer_settings[user_id]["hours"],
+            timer_settings[user_id]["minutes"],
+            timer_settings[user_id]["seconds"]
+        )
+    )
+
+
+# ==========================================
+# TIME ADJUSTMENT HANDLERS
+# ==========================================
+
+@router.callback_query(F.data == "timer_add_hour")
 async def add_hour(callback: CallbackQuery):
+    """Add 1 hour to timer"""
     user_id = callback.from_user.id
-    settings[user_id]["hours"] += 1
-    await refresh_config_message(callback, user_id)
+    init_timer_settings(user_id)
+    
+    timer_settings[user_id]["hours"] += 1
+    await refresh_timer_message(callback, user_id)
     await callback.answer("➕ 1 hour")
 
-@router.callback_query(F.data == "add_minute")
+
+@router.callback_query(F.data == "timer_add_minute")
 async def add_minute(callback: CallbackQuery):
+    """Add 1 minute to timer"""
     user_id = callback.from_user.id
-    if settings[user_id]["minutes"] < 59:
-        settings[user_id]["minutes"] += 1
+    init_timer_settings(user_id)
+    
+    if timer_settings[user_id]["minutes"] < 59:
+        timer_settings[user_id]["minutes"] += 1
     else:
-        settings[user_id]["minutes"] = 0
-        settings[user_id]["hours"] += 1
-    await refresh_config_message(callback, user_id)
+        timer_settings[user_id]["minutes"] = 0
+        timer_settings[user_id]["hours"] += 1
+    
+    await refresh_timer_message(callback, user_id)
     await callback.answer("➕ 1 minute")
 
-@router.callback_query(F.data == "add_second")
+
+@router.callback_query(F.data == "timer_add_second")
 async def add_second(callback: CallbackQuery):
+    """Add 1 second to timer"""
     user_id = callback.from_user.id
-    if settings[user_id]["seconds"] < 59:
-        settings[user_id]["seconds"] += 1
+    init_timer_settings(user_id)
+    
+    if timer_settings[user_id]["seconds"] < 59:
+        timer_settings[user_id]["seconds"] += 1
     else:
-        settings[user_id]["seconds"] = 0
-        if settings[user_id]["minutes"] < 59:
-            settings[user_id]["minutes"] += 1
+        timer_settings[user_id]["seconds"] = 0
+        if timer_settings[user_id]["minutes"] < 59:
+            timer_settings[user_id]["minutes"] += 1
         else:
-            settings[user_id]["minutes"] = 0
-            settings[user_id]["hours"] += 1
-    await refresh_config_message(callback, user_id)
+            timer_settings[user_id]["minutes"] = 0
+            timer_settings[user_id]["hours"] += 1
+    
+    await refresh_timer_message(callback, user_id)
     await callback.answer("➕ 1 second")
 
-# ==== Decrement ====
-@router.callback_query(F.data == "sub_hour")
+
+@router.callback_query(F.data == "timer_sub_hour")
 async def sub_hour(callback: CallbackQuery):
+    """Subtract 1 hour from timer"""
     user_id = callback.from_user.id
-    if settings[user_id]["hours"] > 0:
-        settings[user_id]["hours"] -= 1
-    await refresh_config_message(callback, user_id)
+    init_timer_settings(user_id)
+    
+    if timer_settings[user_id]["hours"] > 0:
+        timer_settings[user_id]["hours"] -= 1
+    
+    await refresh_timer_message(callback, user_id)
     await callback.answer("➖ 1 hour")
 
-@router.callback_query(F.data == "sub_minute")
+
+@router.callback_query(F.data == "timer_sub_minute")
 async def sub_minute(callback: CallbackQuery):
+    """Subtract 1 minute from timer"""
     user_id = callback.from_user.id
-    if settings[user_id]["minutes"] > 0:
-        settings[user_id]["minutes"] -= 1
-    elif settings[user_id]["hours"] > 0:
-        settings[user_id]["hours"] -= 1
-        settings[user_id]["minutes"] = 59
-    await refresh_config_message(callback, user_id)
+    init_timer_settings(user_id)
+    
+    if timer_settings[user_id]["minutes"] > 0:
+        timer_settings[user_id]["minutes"] -= 1
+    elif timer_settings[user_id]["hours"] > 0:
+        timer_settings[user_id]["hours"] -= 1
+        timer_settings[user_id]["minutes"] = 59
+    
+    await refresh_timer_message(callback, user_id)
     await callback.answer("➖ 1 minute")
 
-@router.callback_query(F.data == "sub_second")
+
+@router.callback_query(F.data == "timer_sub_second")
 async def sub_second(callback: CallbackQuery):
+    """Subtract 1 second from timer"""
     user_id = callback.from_user.id
-    if settings[user_id]["seconds"] > 0:
-        settings[user_id]["seconds"] -= 1
-    elif settings[user_id]["minutes"] > 0:
-        settings[user_id]["minutes"] -= 1
-        settings[user_id]["seconds"] = 59
-    elif settings[user_id]["hours"] > 0:
-        settings[user_id]["hours"] -= 1
-        settings[user_id]["minutes"] = 59
-        settings[user_id]["seconds"] = 59
-    await refresh_config_message(callback, user_id)
+    init_timer_settings(user_id)
+    
+    if timer_settings[user_id]["seconds"] > 0:
+        timer_settings[user_id]["seconds"] -= 1
+    elif timer_settings[user_id]["minutes"] > 0:
+        timer_settings[user_id]["minutes"] -= 1
+        timer_settings[user_id]["seconds"] = 59
+    elif timer_settings[user_id]["hours"] > 0:
+        timer_settings[user_id]["hours"] -= 1
+        timer_settings[user_id]["minutes"] = 59
+        timer_settings[user_id]["seconds"] = 59
+    
+    await refresh_timer_message(callback, user_id)
     await callback.answer("➖ 1 second")
 
-# ==== Start Timer ====
-@router.callback_query(F.data == "start_timer")
+
+# ==========================================
+# TIMER CONTROL HANDLERS
+# ==========================================
+
+@router.callback_query(F.data == "timer_start")
 async def start_timer(callback: CallbackQuery):
+    """Start the timer"""
     user_id = callback.from_user.id
-    s = settings[user_id]
-    total_seconds = s["hours"] * 3600 + s["minutes"] * 60 + s["seconds"]
+    init_timer_settings(user_id)
+    
+    settings = timer_settings[user_id]
+    total_seconds = settings["hours"] * 3600 + settings["minutes"] * 60 + settings["seconds"]
 
     if total_seconds <= 0:
-        await callback.answer("⚠️ Time not set", show_alert=True)
+        await callback.answer("⚠️ Time is not set", show_alert=True)
         return
 
     timer = Timer(total_seconds)
     timer.start()
-    timers[user_id] = timer
+    active_timers[user_id] = timer
 
     async def notify():
         try:
             await asyncio.sleep(total_seconds)
-            if user_id in timers and timers[user_id] == timer:
-                del timers[user_id]
-                settings[user_id] = {"hours": 0, "minutes": 0, "seconds": 0}
+            if user_id in active_timers and active_timers[user_id] == timer:
+                del active_timers[user_id]
+                timer_settings[user_id] = {"hours": 0, "minutes": 0, "seconds": 0}
+                
+                # Try to remove the stop button from the timer message
+                try:
+                    if timer.message_id:
+                        await callback.bot.edit_message_reply_markup(
+                            chat_id=callback.message.chat.id,
+                            message_id=timer.message_id,
+                            reply_markup=None
+                        )
+                except Exception:
+                    pass  # Message might be deleted or inaccessible
+                
                 await callback.message.answer(
-                    "✅ Timer completed!\n\n🔄 Want to start a new one?",
-                    reply_markup=build_timer_keyboard(user_id)
+                    "✅ Timer completed!\n\n🔄 Do you want to start a new one?",
+                    reply_markup=build_timer_keyboard(0, 0, 0)
                 )
         except asyncio.CancelledError:
             pass
 
     timer.task = asyncio.create_task(notify())
-    await callback.message.answer(f"⏳ Timer for {total_seconds} seconds started!")
+    
+    time_str = format_time_display(settings["hours"], settings["minutes"], settings["seconds"])
+    sent_message = await callback.message.answer(
+        f"⏳ Timer for {time_str} started!",
+        reply_markup=build_stop_timer_keyboard()
+    )
+    
+    # Store message ID for later reference
+    timer.message_id = sent_message.message_id
+    
     await callback.answer()
 
-# ==== Stop Timer ====
-@router.callback_query(F.data == "stop_timer")
-async def stop_timer(callback: CallbackQuery):
+
+@router.callback_query(F.data == "timer_stop_active")
+async def stop_active_timer(callback: CallbackQuery):
+    """Stop the currently running timer from the stop button"""
     user_id = callback.from_user.id
-    timer = timers.get(user_id)
+    timer = active_timers.get(user_id)
+
+    if not timer:
+        await callback.answer("⚠️ No active timer.", show_alert=True)
+        return
+
+    # Cancel the timer task
+    if timer.task:
+        timer.task.cancel()
+    
+    # Calculate elapsed time
+    elapsed = (datetime.now() - timer.start_time).total_seconds() if timer.start_time else 0
+    remaining = timer.remaining_seconds()
+    
+    # Remove from active timers
+    del active_timers[user_id]
+    timer_settings[user_id] = {"hours": 0, "minutes": 0, "seconds": 0}
+    
+    # Remove the stop button
+    await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Send confirmation message
+    await callback.message.answer(
+        "⏹ Timer stopped.\n\n🔄 Do you want to start a new one?",
+        reply_markup=build_timer_keyboard(0, 0, 0)
+    )
+    await callback.answer("Timer stopped!")
+
+
+@router.callback_query(F.data == "timer_stop")
+async def stop_timer(callback: CallbackQuery):
+    """Stop the active timer (from main menu)"""
+    user_id = callback.from_user.id
+    timer = active_timers.get(user_id)
 
     if not timer:
         await callback.answer("⚠️ No active timer.", show_alert=True)
@@ -148,315 +320,241 @@ async def stop_timer(callback: CallbackQuery):
 
     if timer.task:
         timer.task.cancel()
-    del timers[user_id]
-    settings[user_id] = {"hours": 0, "minutes": 0, "seconds": 0}
+    
+    # Try to remove the stop button from the timer message
+    try:
+        if timer.message_id:
+            await callback.bot.edit_message_reply_markup(
+                chat_id=callback.message.chat.id,
+                message_id=timer.message_id,
+                reply_markup=None
+            )
+    except Exception:
+        pass  # Message might be deleted or inaccessible
+    
+    del active_timers[user_id]
 
+    timer_settings[user_id] = {"hours": 0, "minutes": 0, "seconds": 0}
     await callback.message.answer(
-        "⏹ Timer stopped.\n\n🔄 Want to start a new one?",
-        reply_markup=build_timer_keyboard(user_id)
+        "⏹ Timer stopped.\n\n🔄 Do you want to start a new one?",
+        reply_markup=build_timer_keyboard(0, 0, 0)
     )
     await callback.answer()
 
-# ==== No-op ====
-@router.callback_query(F.data == "noop")
-async def noop(callback: CallbackQuery):
-    await callback.answer()
 
+# ==========================================
+# PRESET MENU HANDLERS
+# ==========================================
 
-# ========== PRESETS HANDLERS ==========
-
-@router.callback_query(F.data == "presets_menu")
-async def presets_menu(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
+@router.callback_query(F.data == "timer_presets_menu")
+async def presets_menu(callback: CallbackQuery):
+    """Show presets management menu"""
     await callback.message.edit_text(
-        "⚙️ Preset Settings",
-        reply_markup=build_presets_menu_keyboard()
+        "⚙️ Timer Preset Settings",
+        reply_markup=presets_menu_keyboard()
     )
     await callback.answer()
 
 
-@router.callback_query(F.data == "preset_back")
-async def preset_back(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
+@router.callback_query(F.data == "timer_go_main")
+async def go_main(callback: CallbackQuery):
+    """Return to main timer interface"""
     user_id = callback.from_user.id
-    await callback.message.edit_text(
-        "Hello! 👋 Set your timer:",
-        reply_markup=build_timer_keyboard(user_id)
-    )
+    init_timer_settings(user_id)
+    await refresh_timer_message(callback, user_id)
     await callback.answer()
 
 
-@router.callback_query(F.data == "preset_add")
+# ==========================================
+# ADD PRESET HANDLERS
+# ==========================================
+
+@router.callback_query(F.data == "timer_preset_add")
 async def preset_add(callback: CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
-    
-    if len(user_presets) >= 10:
-        await callback.answer("⚠️ Maximum 10 presets allowed", show_alert=True)
-        return
-    
-    await state.set_state(PresetStates.waiting_for_preset_name)
-    await callback.message.edit_text("Enter preset name (e.g., 'Plank'):")
+    """Start preset creation process"""
+    await state.set_state(TimerPresetForm.waiting_for_name)
+    await callback.message.edit_text("✏️ Enter the preset name (e.g., Plank, Rest):")
     await callback.answer()
 
 
-@router.message(PresetStates.waiting_for_preset_name)
+@router.message(TimerPresetForm.waiting_for_name)
 async def process_preset_name(message: Message, state: FSMContext):
-    name = message.text.strip()
-    
-    if len(name) > 50:
-        await message.answer("❌ Name too long (max 50 characters). Try again:")
-        return
-    
-    if not name:
-        await message.answer("❌ Name cannot be empty. Try again:")
-        return
-    
-    await state.update_data(preset_name=name)
-    await state.set_state(PresetStates.waiting_for_preset_time)
-    await message.answer("Enter time in format: HH:MM:SS or MM:SS or just seconds\nExample: 8:00 (8 minutes)")
+    """Process preset name input"""
+    await state.update_data(name=message.text)
+    await state.set_state(TimerPresetForm.waiting_for_time)
+    await message.answer(
+        "⏱ Enter the time in format HH:MM:SS or MM:SS or SS\n"
+        "(e.g., 8:00 or 0:8:0 or 480)"
+    )
 
 
-@router.message(PresetStates.waiting_for_preset_time)
+@router.message(TimerPresetForm.waiting_for_time)
 async def process_preset_time(message: Message, state: FSMContext):
-    time_str = message.text.strip()
+    """Process preset time input"""
+    user_id = message.from_user.id
     
-    try:
-        # Parse different time formats
-        parts = time_str.split(':')
-        
-        if len(parts) == 3:  # HH:MM:SS
-            h, m, s = map(int, parts)
-        elif len(parts) == 2:  # MM:SS
-            h = 0
-            m, s = map(int, parts)
-        elif len(parts) == 1:  # Just seconds
-            h = 0
-            m = 0
-            s = int(parts[0])
-        else:
-            raise ValueError
-        
-        total_seconds = h * 3600 + m * 60 + s
-        
-        if total_seconds <= 0:
-            raise ValueError
-        
-        if total_seconds > 86400:  # 24 hours
-            await message.answer("❌ Time too long (max 24 hours). Try again:")
-            return
-        
-    except (ValueError, IndexError):
-        await message.answer("❌ Invalid format. Use HH:MM:SS, MM:SS, or seconds. Try again:")
+    # Parse time string
+    time_tuple, error_msg = parse_time_string(message.text)
+    
+    if not time_tuple:
+        await message.answer(error_msg)
         return
     
+    hours, minutes, seconds = time_tuple
+    
+    # Get preset name from state
     data = await state.get_data()
-    preset_name = data.get("preset_name")
+    name = data.get('name', 'Unnamed')
     
-    user_id = message.from_user.id
-    if user_id not in presets:
-        presets[user_id] = []
+    # Check if this is a replace operation
+    replace_id = data.get('replace_id')
     
-    presets[user_id].append({
-        "name": preset_name,
-        "seconds": total_seconds
-    })
+    if replace_id:
+        # Update existing preset
+        preset = update_timer_preset(replace_id, name, hours, minutes, seconds)
+        action_text = "✅ Preset updated!"
+    else:
+        # Create new preset
+        preset = add_timer_preset(user_id, name, hours, minutes, seconds)
+        action_text = "✅ Preset added!"
     
-    h_display = total_seconds // 3600
-    m_display = (total_seconds % 3600) // 60
-    s_display = total_seconds % 60
-    
-    await message.answer(
-        f"✅ Preset added!\n\n"
-        f"Name: {preset_name}\n"
-        f"Time: {h_display}h {m_display}m {s_display}s",
-        reply_markup=build_presets_menu_keyboard()
-    )
     await state.clear()
+    
+    time_str = format_time_display(hours, minutes, seconds)
+    await message.answer(
+        f"{action_text}\n\nName: {name}\nTime: {time_str}",
+        reply_markup=presets_menu_keyboard()
+    )
 
 
-@router.callback_query(F.data == "preset_list")
+# ==========================================
+# LIST PRESETS HANDLERS
+# ==========================================
+
+@router.callback_query(F.data == "timer_preset_list")
 async def preset_list(callback: CallbackQuery):
+    """Show list of user's presets"""
     user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
+    presets = get_user_timer_presets(user_id)
     
-    if not user_presets:
-        await callback.message.edit_text(
-            "📋 No presets saved.\n\nClick Add to create your first preset!",
-            reply_markup=build_presets_menu_keyboard()
-        )
-    else:
-        await callback.message.edit_text(
-            "📋 Your presets (click to load):",
-            reply_markup=build_presets_list_keyboard(user_id, action="load")
-        )
+    if not presets:
+        await callback.answer("No presets found!", show_alert=True)
+        return
+    
+    await callback.message.edit_text(
+        "📋 Your presets (click to load):",
+        reply_markup=preset_list_keyboard(user_id, "load")
+    )
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("preset_load_"))
+@router.callback_query(F.data.startswith("timer_preset_load_"))
 async def preset_load(callback: CallbackQuery):
+    """Load a preset into the timer"""
     user_id = callback.from_user.id
-    preset_index = int(callback.data.split("_")[2])
+    preset_id = int(callback.data.split("_")[-1])
+    preset = get_timer_preset_by_id(preset_id)
     
-    user_presets = presets.get(user_id, [])
-    if preset_index >= len(user_presets):
-        await callback.answer("❌ Preset not found", show_alert=True)
+    if not preset:
+        await callback.answer("❌ Preset not found!", show_alert=True)
         return
     
-    preset = user_presets[preset_index]
-    total_seconds = preset["seconds"]
+    # Verify ownership
+    if preset.user_id != user_id:
+        await callback.answer("❌ Access denied!", show_alert=True)
+        return
     
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
-    
-    settings[user_id] = {
-        "hours": hours,
-        "minutes": minutes,
-        "seconds": seconds
+    # Load preset into settings
+    timer_settings[user_id] = {
+        "hours": preset.hours,
+        "minutes": preset.minutes,
+        "seconds": preset.seconds
     }
     
     await callback.message.edit_text(
-        f"✅ Loaded preset: {preset['name']}",
-        reply_markup=build_timer_keyboard(user_id)
+        f"✅ Loaded preset: {preset.name}",
+        reply_markup=build_timer_keyboard(preset.hours, preset.minutes, preset.seconds)
     )
     await callback.answer()
 
 
-@router.callback_query(F.data == "preset_replace")
-async def preset_replace(callback: CallbackQuery):
+# ==========================================
+# REPLACE PRESET HANDLERS
+# ==========================================
+
+@router.callback_query(F.data == "timer_preset_replace")
+async def preset_replace_menu(callback: CallbackQuery):
+    """Show menu to select preset for replacement"""
     user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
+    presets = get_user_timer_presets(user_id)
     
-    if not user_presets:
-        await callback.message.edit_text(
-            "📋 No presets to replace.",
-            reply_markup=build_presets_menu_keyboard()
-        )
-    else:
-        await callback.message.edit_text(
-            "✏️ Select preset to replace:",
-            reply_markup=build_presets_list_keyboard(user_id, action="replace")
-        )
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("preset_replace_"))
-async def preset_replace_select(callback: CallbackQuery, state: FSMContext):
-    preset_index = int(callback.data.split("_")[2])
-    
-    await state.update_data(replace_index=preset_index)
-    await state.set_state(PresetStates.waiting_for_replace_name)
-    await callback.message.edit_text("Enter new preset name:")
-    await callback.answer()
-
-
-@router.message(PresetStates.waiting_for_replace_name)
-async def process_replace_name(message: Message, state: FSMContext):
-    name = message.text.strip()
-    
-    if len(name) > 50:
-        await message.answer("❌ Name too long (max 50 characters). Try again:")
+    if not presets:
+        await callback.answer("No presets to replace!", show_alert=True)
         return
     
-    if not name:
-        await message.answer("❌ Name cannot be empty. Try again:")
-        return
-    
-    await state.update_data(preset_name=name)
-    await state.set_state(PresetStates.waiting_for_replace_time)
-    await message.answer("Enter new time (HH:MM:SS, MM:SS, or seconds):")
-
-
-@router.message(PresetStates.waiting_for_replace_time)
-async def process_replace_time(message: Message, state: FSMContext):
-    time_str = message.text.strip()
-    
-    try:
-        parts = time_str.split(':')
-        
-        if len(parts) == 3:
-            h, m, s = map(int, parts)
-        elif len(parts) == 2:
-            h = 0
-            m, s = map(int, parts)
-        elif len(parts) == 1:
-            h = 0
-            m = 0
-            s = int(parts[0])
-        else:
-            raise ValueError
-        
-        total_seconds = h * 3600 + m * 60 + s
-        
-        if total_seconds <= 0 or total_seconds > 86400:
-            raise ValueError
-        
-    except (ValueError, IndexError):
-        await message.answer("❌ Invalid format. Try again:")
-        return
-    
-    data = await state.get_data()
-    preset_name = data.get("preset_name")
-    replace_index = data.get("replace_index")
-    
-    user_id = message.from_user.id
-    
-    if user_id not in presets or replace_index >= len(presets[user_id]):
-        await message.answer("❌ Preset not found")
-        await state.clear()
-        return
-    
-    presets[user_id][replace_index] = {
-        "name": preset_name,
-        "seconds": total_seconds
-    }
-    
-    h_display = total_seconds // 3600
-    m_display = (total_seconds % 3600) // 60
-    s_display = total_seconds % 60
-    
-    await message.answer(
-        f"✅ Preset replaced!\n\n"
-        f"Name: {preset_name}\n"
-        f"Time: {h_display}h {m_display}m {s_display}s",
-        reply_markup=build_presets_menu_keyboard()
+    await callback.message.edit_text(
+        "✏️ Select preset to replace:",
+        reply_markup=preset_list_keyboard(user_id, "replace")
     )
-    await state.clear()
-
-
-@router.callback_query(F.data == "preset_delete")
-async def preset_delete(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    user_presets = presets.get(user_id, [])
-    
-    if not user_presets:
-        await callback.message.edit_text(
-            "📋 No presets to delete.",
-            reply_markup=build_presets_menu_keyboard()
-        )
-    else:
-        await callback.message.edit_text(
-            "🗑 Select preset to delete:",
-            reply_markup=build_presets_list_keyboard(user_id, action="delete")
-        )
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("preset_delete_"))
+@router.callback_query(F.data.startswith("timer_preset_replace_"))
+async def preset_replace_confirm(callback: CallbackQuery, state: FSMContext):
+    """Start replace process for selected preset"""
+    preset_id = int(callback.data.split("_")[-1])
+    await state.update_data(replace_id=preset_id)
+    await state.set_state(TimerPresetForm.waiting_for_name)
+    await callback.message.edit_text("✏️ Enter the new preset name:")
+    await callback.answer()
+
+
+# ==========================================
+# DELETE PRESET HANDLERS
+# ==========================================
+
+@router.callback_query(F.data == "timer_preset_delete")
+async def preset_delete_menu(callback: CallbackQuery):
+    """Show menu to select preset for deletion"""
+    user_id = callback.from_user.id
+    presets = get_user_timer_presets(user_id)
+    
+    if not presets:
+        await callback.answer("No presets to delete!", show_alert=True)
+        return
+    
+    await callback.message.edit_text(
+        "🗑 Select preset to delete:",
+        reply_markup=preset_list_keyboard(user_id, "delete")
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("timer_preset_delete_"))
 async def preset_delete_confirm(callback: CallbackQuery):
+    """Delete selected preset"""
     user_id = callback.from_user.id
-    preset_index = int(callback.data.split("_")[2])
+    preset_id = int(callback.data.split("_")[-1])
     
-    user_presets = presets.get(user_id, [])
-    if preset_index >= len(user_presets):
-        await callback.answer("❌ Preset not found", show_alert=True)
+    # Verify ownership before deletion
+    preset = get_timer_preset_by_id(preset_id)
+    if not preset or preset.user_id != user_id:
+        await callback.answer("❌ Access denied!", show_alert=True)
         return
     
-    deleted_preset = user_presets.pop(preset_index)
-    
+    delete_timer_preset(preset_id)
     await callback.message.edit_text(
-        f"✅ Preset '{deleted_preset['name']}' deleted!",
-        reply_markup=build_presets_menu_keyboard()
+        "✅ Preset deleted!",
+        reply_markup=presets_menu_keyboard()
     )
+    await callback.answer()
+
+
+# ==========================================
+# NO-OP HANDLER
+# ==========================================
+
+@router.callback_query(F.data == "timer_noop")
+async def noop(callback: CallbackQuery):
+    """No operation - for display-only buttons"""
     await callback.answer()
