@@ -17,6 +17,15 @@ from aiogram.filters import CommandStart, Command
 
 from bot.config import BOT_TOKEN
 from bot.core.database import init_db
+from bot.features.dev1_workout_tracking.handlers import router as workout_router
+from bot.features.dev1_workout_tracking.services import get_or_create_user
+from bot.features.dev2_exercise_library.exercise_handlers import exercise_router
+from bot.features.dev2_exercise_library.exercise_db import ExerciseDatabase
+from bot.features.dev3_progress_stats.stats_handlers import stats_router
+from bot.features.dev4_custom_routines.handlers import routine_router
+from bot.features.dev5_rest_timers.handlers import router as timer_router
+from bot.features.dev7_nutrition_tracking.handlers import router as nutrition_router
+from bot.features.dev8_training_notification.handlers import router as notification_router
 
 
 # Configure logging
@@ -154,10 +163,29 @@ async def main():
         logger.info("🗄️ Initializing database...")
         init_db()
         
-
+        # Auto-initialize exercises if database is empty
+        logger.info("📚 Checking exercise database...")
+        exercise_db = ExerciseDatabase()
+        exercise_db.auto_initialize_if_empty()
+        
+        # Include routers in dispatcher (order matters!)
+        dp.include_router(main_router)
+        dp.include_router(workout_router)         # Dev1: Workout tracking
+        dp.include_router(exercise_router)        # Dev2: Exercise library
+        dp.include_router(stats_router)           # Dev3: Statistics & progress
+        dp.include_router(routine_router)         # Dev4: Custom routines
+        dp.include_router(timer_router)           # Dev5: Rest timers
+        dp.include_router(nutrition_router)       # Dev7: Nutrition tracking
+        dp.include_router(notification_router)    # Dev8: Training notifications
+        dp.include_router(echo_router)            # Echo always last!
         
         logger.info("🤖 Bot started!")
-
+        logger.info("📚 Exercise library ready")
+        logger.info("📊 Statistics module ready")
+        logger.info("🎯 Custom routines ready")
+        logger.info("⏱️ Timer module ready")
+        logger.info("🍎 Nutrition tracking ready")
+        logger.info("📅 Training notifications ready")
         
         # Start polling
         await dp.start_polling(bot)
