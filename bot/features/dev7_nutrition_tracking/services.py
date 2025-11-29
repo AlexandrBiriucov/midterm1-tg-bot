@@ -1,12 +1,14 @@
 import aiohttp
 import logging
-import sqlite3
 from datetime import date
 from typing import Dict, List, Optional
+from sqlalchemy import func
+from bot.core.database import get_session
+from bot.core.models import User, NutritionGoal, FoodCache, NutritionMeal
 
 logger = logging.getLogger(__name__)
 
-# Configuration
+# USDA API Configuration
 USDA_API_KEY = "3X3lZVkwbI7csqXUY0fOxkKm1bdBN8OeJSwZX74y"
 USDA_BASE_URL = "https://api.nal.usda.gov/fdc/v1"
 
@@ -84,241 +86,210 @@ class NutritionCalculator:
         }
 
 
-class DatabaseManager:
-    def __init__(self, db_path="nutrition_tracker.db"):
-        self.db_path = db_path
-        self.init_database()
+class NutritionDatabase:
+    """Database operations for nutrition tracking"""
     
-    def init_database(self):
-        """Initialize SQLite database with necessary tables"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Users table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS nutrition_users (
-                user_id INTEGER PRIMARY KEY,
-                username TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Food database table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS foods (
-                fdc_id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                calories_per_100g REAL,
-                protein_per_100g REAL,
-                carbs_per_100g REAL,
-                fat_per_100g REAL,
-                fiber_per_100g REAL,
-                sodium_per_100g REAL,
-                cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # User goals table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS nutrition_user_goals (
-                user_id INTEGER PRIMARY KEY,
-                daily_calories REAL,
-                daily_protein REAL,
-                daily_carbs REAL,
-                daily_fat REAL,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES nutrition_users (user_id)
-            )
-        ''')
-        
-        # Daily meals table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS nutrition_meals (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                date DATE,
-                meal_type TEXT,
-                fdc_id INTEGER,
-                food_name TEXT,
-                portion_grams REAL,
-                calories REAL,
-                protein REAL,
-                carbs REAL,
-                fat REAL,
-                logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES nutrition_users (user_id),
-                FOREIGN KEY (fdc_id) REFERENCES foods (fdc_id)
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
+    @staticmethod
+    def ensure_user_exists(telegram_id: int, username: str = None):
+        """Ensure user exists in database"""
+        with get_session() as session:
+            user = session.query(User).filter_by(telegram_id=telegram_id).first()
+            if not user:
+                user = User(
+                    user_id=telegram_id,
+                    telegram_id=telegram_id,
+                    username=username
+                )
+                session.add(user)
+                session.commit()
     
-    def add_user(self, user_id: int, username: str = None):
-        """Add new user to database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR IGNORE INTO nutrition_users (user_id, username) 
-            VALUES (?, ?)
-        ''', (user_id, username))
-        conn.commit()
-        conn.close()
+    @staticmethod
+    def set_user_goals(user_id: int, calories: float, protein: float, 
+                      carbs: float, fat: float, bmr: float = None, 
+                      tdee: float = None, goal_type: str = None):
+        """Set or update user's nutrition goals"""
+        with get_session() as session:
+            goal = session.query(NutritionGoal).filter_by(user_id=user_id).first()
+            
+            if goal:
+                # Update existing goal
+                goal.daily_calories = calories
+                goal.daily_protein = protein
+                goal.daily_carbs = carbs
+                goal.daily_fat = fat
+                goal.bmr = bmr
+                goal.tdee = tdee
+                goal.goal_type = goal_type
+            else:
+                # Create new goal
+                goal = NutritionGoal(
+                    user_id=user_id,
+                    daily_calories=calories,
+                    daily_protein=protein,
+                    daily_carbs=carbs,
+                    daily_fat=fat,
+                    bmr=bmr,
+                    tdee=tdee,
+                    goal_type=goal_type
+                )
+                session.add(goal)
+            
+            session.commit()
     
-    def cache_food(self, food_data: dict):
-        """Cache food data in local database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        fdc_id = food_data.get('fdc_id')
-        name = food_data.get('name')
-        
-        cursor.execute('''
-            INSERT OR REPLACE INTO foods 
-            (fdc_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, 
-             fat_per_100g, fiber_per_100g, sodium_per_100g)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            fdc_id, name, food_data.get('calories', 0),
-            food_data.get('protein', 0), food_data.get('carbs', 0),
-            food_data.get('fat', 0), food_data.get('fiber', 0),
-            food_data.get('sodium', 0)
-        ))
-        
-        conn.commit()
-        conn.close()
+    @staticmethod
+    def get_user_goals(user_id: int) -> Optional[Dict]:
+        """Get user's nutrition goals"""
+        with get_session() as session:
+            goal = session.query(NutritionGoal).filter_by(user_id=user_id).first()
+            
+            if goal:
+                return {
+                    'calories': goal.daily_calories,
+                    'protein': goal.daily_protein,
+                    'carbs': goal.daily_carbs,
+                    'fat': goal.daily_fat,
+                    'bmr': goal.bmr,
+                    'tdee': goal.tdee,
+                    'goal_type': goal.goal_type
+                }
+            return None
     
-    def get_cached_food(self, fdc_id: int) -> Optional[dict]:
+    @staticmethod
+    def cache_food(food_data: dict):
+        """Cache food data in database"""
+        with get_session() as session:
+            food = session.query(FoodCache).filter_by(fdc_id=food_data['fdc_id']).first()
+            
+            if food:
+                # Update existing cache
+                food.name = food_data['name']
+                food.calories_per_100g = food_data.get('calories', 0)
+                food.protein_per_100g = food_data.get('protein', 0)
+                food.carbs_per_100g = food_data.get('carbs', 0)
+                food.fat_per_100g = food_data.get('fat', 0)
+                food.fiber_per_100g = food_data.get('fiber')
+                food.sodium_per_100g = food_data.get('sodium')
+            else:
+                # Create new cache entry
+                food = FoodCache(
+                    fdc_id=food_data['fdc_id'],
+                    name=food_data['name'],
+                    calories_per_100g=food_data.get('calories', 0),
+                    protein_per_100g=food_data.get('protein', 0),
+                    carbs_per_100g=food_data.get('carbs', 0),
+                    fat_per_100g=food_data.get('fat', 0),
+                    fiber_per_100g=food_data.get('fiber'),
+                    sodium_per_100g=food_data.get('sodium')
+                )
+                session.add(food)
+            
+            session.commit()
+    
+    @staticmethod
+    def get_cached_food(fdc_id: int) -> Optional[Dict]:
         """Get cached food data"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM foods WHERE fdc_id = ?', (fdc_id,))
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result:
-            return {
-                'fdc_id': result[0],
-                'name': result[1],
-                'calories': result[2],
-                'protein': result[3],
-                'carbs': result[4],
-                'fat': result[5],
-                'fiber': result[6],
-                'sodium': result[7]
-            }
-        return None
+        with get_session() as session:
+            food = session.query(FoodCache).filter_by(fdc_id=fdc_id).first()
+            
+            if food:
+                return {
+                    'fdc_id': food.fdc_id,
+                    'name': food.name,
+                    'calories': food.calories_per_100g,
+                    'protein': food.protein_per_100g,
+                    'carbs': food.carbs_per_100g,
+                    'fat': food.fat_per_100g,
+                    'fiber': food.fiber_per_100g,
+                    'sodium': food.sodium_per_100g
+                }
+            return None
     
-    def set_user_goals(self, user_id: int, calories: float, protein: float, carbs: float, fat: float):
-        """Set user's daily nutrition goals"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO nutrition_user_goals 
-            (user_id, daily_calories, daily_protein, daily_carbs, daily_fat)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (user_id, calories, protein, carbs, fat))
-        conn.commit()
-        conn.close()
-    
-    def get_user_goals(self, user_id: int) -> Optional[dict]:
-        """Get user's daily nutrition goals"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM nutrition_user_goals WHERE user_id = ?', (user_id,))
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result:
-            return {
-                'calories': result[1],
-                'protein': result[2],
-                'carbs': result[3],
-                'fat': result[4]
-            }
-        return None
-    
-    def log_meal(self, user_id: int, meal_type: str, fdc_id: int, food_name: str, 
-                 portion_grams: float, calories: float, protein: float, carbs: float, fat: float):
+    @staticmethod
+    def log_meal(user_id: int, meal_type: str, fdc_id: int, food_name: str,
+                 portion_grams: float, calories: float, protein: float, 
+                 carbs: float, fat: float):
         """Log a meal entry"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        today = date.today()
-        
-        cursor.execute('''
-            INSERT INTO nutrition_meals 
-            (user_id, date, meal_type, fdc_id, food_name, portion_grams, 
-             calories, protein, carbs, fat)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (user_id, today, meal_type, fdc_id, food_name, portion_grams,
-              calories, protein, carbs, fat))
-        
-        conn.commit()
-        conn.close()
+        with get_session() as session:
+            # Get the food_cache_id for this fdc_id
+            food_cache = session.query(FoodCache).filter_by(fdc_id=fdc_id).first()
+            
+            if not food_cache:
+                logger.error(f"FoodCache not found for fdc_id {fdc_id}")
+                return
+            
+            meal = NutritionMeal(
+                user_id=user_id,
+                date=date.today(),
+                meal_type=meal_type,
+                food_cache_id=food_cache.food_cache_id,
+                fdc_id=fdc_id,
+                food_name=food_name,
+                portion_grams=portion_grams,
+                calories=calories,
+                protein=protein,
+                carbs=carbs,
+                fat=fat
+            )
+            session.add(meal)
+            session.commit()
     
-    def get_daily_intake(self, user_id: int, target_date: date = None) -> dict:
-        """Get user's daily nutritional intake"""
+    @staticmethod
+    def get_daily_intake(user_id: int, target_date: date = None) -> Dict:
+        """Get user's total daily intake"""
         if target_date is None:
             target_date = date.today()
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT SUM(calories), SUM(protein), SUM(carbs), SUM(fat)
-            FROM nutrition_meals 
-            WHERE user_id = ? AND date = ?
-        ''', (user_id, target_date))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        return {
-            'calories': result[0] or 0,
-            'protein': result[1] or 0,
-            'carbs': result[2] or 0,
-            'fat': result[3] or 0
-        }
+        with get_session() as session:
+            result = session.query(
+                func.sum(NutritionMeal.calories).label('calories'),
+                func.sum(NutritionMeal.protein).label('protein'),
+                func.sum(NutritionMeal.carbs).label('carbs'),
+                func.sum(NutritionMeal.fat).label('fat')
+            ).filter(
+                NutritionMeal.user_id == user_id,
+                NutritionMeal.date == target_date
+            ).first()
+            
+            return {
+                'calories': result.calories or 0,
+                'protein': result.protein or 0,
+                'carbs': result.carbs or 0,
+                'fat': result.fat or 0
+            }
     
-    def get_daily_meals(self, user_id: int, target_date: date = None) -> List[dict]:
+    @staticmethod
+    def get_daily_meals(user_id: int, target_date: date = None) -> List[Dict]:
         """Get user's meals for a specific date"""
         if target_date is None:
             target_date = date.today()
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT meal_type, food_name, portion_grams, calories, protein, carbs, fat, logged_at
-            FROM nutrition_meals 
-            WHERE user_id = ? AND date = ?
-            ORDER BY logged_at DESC
-        ''', (user_id, target_date))
-        
-        results = cursor.fetchall()
-        conn.close()
-        
-        meals = []
-        for row in results:
-            meals.append({
-                'meal_type': row[0],
-                'food_name': row[1],
-                'portion_grams': row[2],
-                'calories': row[3],
-                'protein': row[4],
-                'carbs': row[5],
-                'fat': row[6],
-                'logged_at': row[7]
-            })
-        
-        return meals
+        with get_session() as session:
+            meals = session.query(NutritionMeal).filter(
+                NutritionMeal.user_id == user_id,
+                NutritionMeal.date == target_date
+            ).order_by(NutritionMeal.logged_at.desc()).all()
+            
+            return [
+                {
+                    'meal_type': meal.meal_type,
+                    'food_name': meal.food_name,
+                    'portion_grams': meal.portion_grams,
+                    'calories': meal.calories,
+                    'protein': meal.protein,
+                    'carbs': meal.carbs,
+                    'fat': meal.fat,
+                    'logged_at': meal.logged_at
+                }
+                for meal in meals
+            ]
 
 
 class NutritionBot:
+    """Main nutrition bot service with USDA API integration"""
+    
     def __init__(self):
         self.session = None
-        self.db = DatabaseManager()
-        self.temp_food_data = {}
+        self.db = NutritionDatabase()
         self.calculator = NutritionCalculator()
     
     async def ensure_session(self):
