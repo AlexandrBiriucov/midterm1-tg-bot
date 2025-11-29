@@ -1,7 +1,86 @@
 # 🧾 CHANGELOG.md
 
+## 🗓️ October 27, 2024 — Production Deployment ([#23](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/23) by [Orm-Max](https://github.com/Orm-Max))
+
+### 🚀 Deployment
+
+- Deployed bot to production as @kachialkabot with Docker configuration ([d71f5e9](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/23/commits/d71f5e9))
 
 ---
+
+## 🗓️ October 27, 2025 — Feature Integration Phase
+
+## Developer 2: Exercise Library ([#19](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19) by [veacheslavv](https://github.com/veacheslavv))
+
+### 📚 Exercise Library System
+
+- Implemented SQLAlchemy-based exercise database service ([fe15191](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19/commits/fe15191))
+- Added interactive exercise library handlers with filtering and navigation ([461658d](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19/commits/461658d))
+- Created database initialization script for exercise data ([0b652ee](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19/commits/0b652ee))
+- Integrated Exercise model into unified database schema ([0ac2844](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19/commits/0ac2844))
+
+---
+
+## Developer 5: Notifications, Nutrition & Timer ([#18](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18), [#17](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17), [#15](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15) by [Orm-Max](https://github.com/Orm-Max))
+
+### 🔔 Notification System
+
+- Migrated notification handlers to unified database architecture ([e23fb0b](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18/commits/e23fb0b))
+- Updated notification services for centralized data models ([3726fd4](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18/commits/3726fd4))
+- Integrated notification models into core database ([5e3e5fd](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18/commits/5e3e5fd))
+
+### 🍎 Nutrition Tracking
+
+- Migrated nutrition handlers to unified database ([82498d7](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17/commits/82498d7))
+- Updated nutrition services for centralized architecture ([c5905fd](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17/commits/c5905fd))
+- Integrated nutrition models into core database ([d59d824](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17/commits/d59d824))
+
+### ⏱️ Workout Timer
+
+- Migrated timer handlers to new modular structure ([070d305](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15/commits/070d305))
+- Updated timer services for new architecture ([dd72afe](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15/commits/dd72afe))
+- Implemented FSM-based timer states ([4165298](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15/commits/4165298))
+- Integrated timer models into unified database ([a0da919](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15/commits/a0da919))
+
+---
+
+## Developer 1: Workout Tracking ([#16](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/16) by [daniilcerneaga](https://github.com/daniilcerneaga))
+
+### 📝 Workout Logging System
+
+- Implemented workout tracking services and handlers ([07ddc65](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/16/commits/07ddc65))
+- Integrated workout models into core database schema ([e3dd428](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/16/commits/e3dd428))
+
+---
+
+## Developer 3: Statistics & Analytics ([#14](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/14), [#13](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/13), [#10](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/10) by [AlexandrBiriucov](https://github.com/AlexandrBiriucov))
+
+### 📊 Workout Analytics
+
+- Implemented volume progression and muscle group distribution analysis ([1306229](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/13/commits/1306229))
+- Created utility functions for statistical calculations ([f4bf6e5](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/10/commits/f4bf6e5))
+- Added routers and directory structure for statistics features ([8cfc9cf](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/10/commits/8cfc9cf))
+
+---
+
+## Developer 4: Custom Routines ([#12](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/12) by [DmitriiSitarciuc](https://github.com/DmitriiSitarciuc))
+
+### 🏋️ Workout Routine Builder
+
+- Implemented custom workout routines functionality ([a9af489](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/12/commits/a9af489))
+
+---
+
+## 🗓️ October 22, 2025 — Architecture Refactor ([#9](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/9), [#7](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/7) by [Orm-Max](https://github.com/Orm-Max))
+
+### 🏗️ New Bot Architecture
+
+- Created main application entry point and configuration system ([f997b8d](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/9/commits/f997b8d))
+- Established unified database foundation with SQLAlchemy ([c82471a](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/9/commits/c82471a))
+- Created modular feature-based structure ([9bd4e20](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/7/commits/9bd4e20))
+
+---
+
 ## 🗓️ October 22, 2025 — Timers, Notifications & Nutrition (  [#3](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3) and [#5](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/5) by [Orm-Max](https://github.com/Orm-Max),)
 
 ### ⏱️ Timer System
