@@ -1,6 +1,22 @@
 # 🧾 CHANGELOG.md
 
-## 🗓️ October 27, 2024 — Production Deployment ([#23](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/23) by [Orm-Max](https://github.com/Orm-Max))
+## 🗓️ October 29, 2025 — Midterm II Updates ([#25](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/25) by [AlexxxCP](https://github.com/AlexxxCP))
+
+### 📝 Documentation
+
+- Updated CHANGELOG.md with all Midterm II changes and improvements ([d2eb1a4](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/25/commits/d2eb1a4))
+
+---
+
+## 🗓️ October 28, 2025 — Midterm I Updates ([#24](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/24) by [AlexxxCP](https://github.com/AlexxxCP))
+
+### 📝 Documentation
+
+- Updated CHANGELOG.md with all Midterm I deliverables ([62325bf](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/24/commits/62325bf))
+
+---
+
+## 🗓️ October 27, 2025 — Production Deployment ([#23](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/23) by [Orm-Max](https://github.com/Orm-Max))
 
 ### 🚀 Deployment
 
