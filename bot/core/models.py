@@ -322,3 +322,52 @@ class NutritionMeal(Base):
     
     def __repr__(self):
         return f"<NutritionMeal(nutrition_meal_id={self.nutrition_meal_id}, user_id={self.user_id}, food={self.food_name}, {self.portion_grams}g)>"
+
+# ============================================================================
+# TRAINING NOTIFICATIONS MODEL - Dev8 feature
+# ============================================================================
+
+class TrainingNotification(Base):
+    """Scheduled training notifications"""
+    __tablename__ = "training_notifications"
+    
+    notification_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+    
+    # Schedule info
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)  # 0=Monday, 6=Sunday
+    hour: Mapped[int] = mapped_column(Integer, nullable=False)  # 0-23
+    minute: Mapped[int] = mapped_column(Integer, nullable=False)  # 0-59
+    reminder_minutes: Mapped[int] = mapped_column(Integer, nullable=False)  # Minutes before training
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="training_notifications")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_user_notifications', 'user_id'),
+        Index('idx_weekday', 'weekday'),
+    )
+    
+    def get_time(self) -> time_type:
+        """Get time object from hour and minute"""
+        return time_type(self.hour, self.minute)
+    
+    def __repr__(self):
+        return f"<TrainingNotification(notification_id={self.notification_id}, user_id={self.user_id}, weekday={self.weekday}, {self.hour:02d}:{self.minute:02d})>"
