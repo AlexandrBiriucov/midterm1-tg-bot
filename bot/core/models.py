@@ -87,6 +87,65 @@ class User(Base):
 
     def __repr__(self):
         return f"<User(user_id={self.user_id}, telegram_id={self.telegram_id}, username={self.username})>"
+
+# ============================================================================
+# WORKOUT TRACKING MODELS - Dev1 feature
+# ============================================================================
+
+class Workout(Base):
+    """Workout log entry"""
+    __tablename__ = "workouts"
+
+    workout_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+    
+    # Exercise data
+    exercise: Mapped[str] = mapped_column(String(100), index=True)
+    sets: Mapped[int] = mapped_column(Integer)
+    reps: Mapped[int] = mapped_column(Integer)
+    weight: Mapped[float] = mapped_column(Float)
+    
+    # Optional: Link to routine
+    routine_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("custom_routines.routine_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    
+    # Optional: Link to exercise library
+    exercise_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("exercises.exercise_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    
+    # Timestamp
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="workouts")
+    routine: Mapped["CustomRoutine | None"] = relationship(
+        "CustomRoutine",
+        back_populates="workouts"
+    )
+    exercise_ref: Mapped["Exercise | None"] = relationship(
+        "Exercise",
+        back_populates="workout_logs"
+    )
+
+    def __repr__(self):
+        return f"<Workout(workout_id={self.workout_id}, exercise={self.exercise}, {self.sets}x{self.reps}x{self.weight}kg)>"
     
 # ============================================================================
 # REST TIMER MODELS - Dev5 feature
