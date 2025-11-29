@@ -1,65 +1,59 @@
+"""
+Inline keyboards for timer functionality.
+"""
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from .services import settings, presets
+
+from .services import get_user_timer_presets, format_time_display
 
 
-def build_timer_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    s = settings.get(user_id, {"hours": 0, "minutes": 0, "seconds": 0})
-    text = f"⏱ {s['hours']}h {s['minutes']}m {s['seconds']}s"
-
+def build_timer_keyboard(hours: int, minutes: int, seconds: int) -> InlineKeyboardMarkup:
+    """Build the main timer configuration keyboard"""
+    time_display = f"⏱ {hours}h {minutes}m {seconds}s"
+    
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="➕ Hours", callback_data="add_hour"),
-            InlineKeyboardButton(text="➕ Minutes", callback_data="add_minute"),
-            InlineKeyboardButton(text="➕ Seconds", callback_data="add_second"),
+            InlineKeyboardButton(text="➕ Hours", callback_data="timer_add_hour"),
+            InlineKeyboardButton(text="➕ Minutes", callback_data="timer_add_minute"),
+            InlineKeyboardButton(text="➕ Seconds", callback_data="timer_add_second"),
         ],
         [
-            InlineKeyboardButton(text="➖ Hours", callback_data="sub_hour"),
-            InlineKeyboardButton(text="➖ Minutes", callback_data="sub_minute"),
-            InlineKeyboardButton(text="➖ Seconds", callback_data="sub_second"),
+            InlineKeyboardButton(text="➖ Hours", callback_data="timer_sub_hour"),
+            InlineKeyboardButton(text="➖ Minutes", callback_data="timer_sub_minute"),
+            InlineKeyboardButton(text="➖ Seconds", callback_data="timer_sub_second"),
         ],
-        [InlineKeyboardButton(text="Start ✅", callback_data="start_timer")],
-        [InlineKeyboardButton(text="Stop ⛔", callback_data="stop_timer")],
-        [InlineKeyboardButton(text="⚙️ Presets", callback_data="presets_menu")],
-        [InlineKeyboardButton(text=text, callback_data="noop")],
+        [InlineKeyboardButton(text="Start ✅", callback_data="timer_start")],
+        [InlineKeyboardButton(text="Stop ⛔", callback_data="timer_stop")],
+        [InlineKeyboardButton(text="⚙️ Presets", callback_data="timer_presets_menu")],
+        [InlineKeyboardButton(text=time_display, callback_data="timer_noop")],
     ])
 
 
-def build_presets_menu_keyboard() -> InlineKeyboardMarkup:
+def presets_menu_keyboard() -> InlineKeyboardMarkup:
+    """Build the presets management menu"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="➕ Add", callback_data="preset_add"),
-            InlineKeyboardButton(text="📋 List", callback_data="preset_list")
+            InlineKeyboardButton(text="➕ Add", callback_data="timer_preset_add"),
+            InlineKeyboardButton(text="📋 List", callback_data="timer_preset_list")
         ],
         [
-            InlineKeyboardButton(text="✏️ Replace", callback_data="preset_replace"),
-            InlineKeyboardButton(text="🗑 Delete", callback_data="preset_delete")
+            InlineKeyboardButton(text="✏️ Replace", callback_data="timer_preset_replace"),
+            InlineKeyboardButton(text="🗑 Delete", callback_data="timer_preset_delete")
         ],
-        [InlineKeyboardButton(text="◀️ Back", callback_data="preset_back")]
+        [InlineKeyboardButton(text="🔙 Back", callback_data="timer_go_main")],
     ])
 
 
-def build_presets_list_keyboard(user_id: int, action: str = "load") -> InlineKeyboardMarkup:
-    """
-    action can be: 'load', 'replace', 'delete'
-    """
-    user_presets = presets.get(user_id, [])
-    
-    if not user_presets:
-        return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀️ Back", callback_data="presets_menu")]
-        ])
-    
+def preset_list_keyboard(telegram_id: int, action: str = "load") -> InlineKeyboardMarkup:
+    """Build keyboard with list of user's presets"""
+    presets = get_user_timer_presets(telegram_id)
     buttons = []
-    for i, preset in enumerate(user_presets):
-        h = preset["seconds"] // 3600
-        m = (preset["seconds"] % 3600) // 60
-        s = preset["seconds"] % 60
-        time_str = f"{h}h {m}m {s}s"
-        text = f"{preset['name']} ({time_str})"
+    
+    for preset in presets:
+        time_str = format_time_display(preset.hours, preset.minutes, preset.seconds)
         buttons.append([InlineKeyboardButton(
-            text=text,
-            callback_data=f"preset_{action}_{i}"
+            text=f"{preset.name} ({time_str})",
+            callback_data=f"timer_preset_{action}_{preset.timer_preset_id}"
         )])
     
-    buttons.append([InlineKeyboardButton(text="◀️ Back", callback_data="presets_menu")])
+    buttons.append([InlineKeyboardButton(text="🔙 Back", callback_data="timer_presets_menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
