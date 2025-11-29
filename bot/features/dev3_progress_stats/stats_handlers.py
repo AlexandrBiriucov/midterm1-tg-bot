@@ -154,3 +154,142 @@ async def process_time_period(message: Message, state: FSMContext):
             resize_keyboard=True,
         )
     )
+
+
+# ============================================================================
+# Best Lift Progression
+# ============================================================================
+
+@stats_router.message(StatsForm.progression_state, F.text.casefold() == "best lift progression")
+async def process_best_lift(message: Message, state: FSMContext):
+    """Start best lift progression flow"""
+    await state.update_data(progression="best_lift")
+    await state.set_state(StatsForm.best_lift)
+    await message.answer(
+        "Which exercise do you want to choose?\nPlease write the exercise name (BenchPress, Squat, Deadlift...)",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@stats_router.message(StatsForm.best_lift)
+async def process_best_lift_exercise_choice(message: Message, state: FSMContext):
+    """Process exercise choice and show weekly progression"""
+    exercise = message.text.strip()
+    await state.update_data(exercise=exercise)
+    user_id = message.from_user.id
+
+    with SessionLocal() as session:
+        results = (
+            session.query(Workout)
+            .filter(Workout.user_id == user_id, Workout.exercise.ilike(exercise))
+            .order_by(Workout.created_at.asc())
+            .all()
+        )
+
+        if not results:
+            await message.answer(f"No data found for {exercise}")
+            await state.clear()
+            return
+
+        weekly_max = defaultdict(int)
+        for w in results:
+            week_start = (w.created_at - timedelta(days=w.created_at.weekday())).date()
+            weekly_max[week_start] = max(weekly_max[week_start], w.weight)
+
+        lines = []
+        for week_start, max_weight in weekly_max.items():
+            week_str = week_start.strftime("%Y-%m-%d")
+            lines.append(f"Week starting {week_str}: best result was {max_weight} kg")
+
+        text = "\n".join(lines)
+        await message.answer(f"Here is your weekly progression:\n{text}")
+        
+        await state.update_data(weekly_max={str(k): v for k, v in weekly_max.items()})
+        await state.set_state(StatsForm.best_lift_action)
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Graph", callback_data="graph")],
+            [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
+            [InlineKeyboardButton(text="Previous", callback_data="Back")],
+        ])
+        await message.answer("Choose an option", reply_markup=keyboard)
+
+
+@stats_router.callback_query(F.data.in_(["graph", "orm", "Back"]))
+async def graph_or_ORM(callback: CallbackQuery, state: FSMContext):
+    """Handle graph/ORM/back callback buttons"""
+    choice = callback.data
+    await callback.answer()
+
+    if choice == "graph":
+        data = await state.get_data()
+        weekly_max = {datetime.fromisoformat(k): v for k, v in data.get("weekly_max", {}).items()}
+        weeks = list(weekly_max.keys())
+        weights = list(weekly_max.values())
+
+        if not weeks:
+            await callback.message.answer("No weekly data available to display.")
+            return
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(weeks, weights, marker="o", linestyle="-", color="blue")
+        plt.xticks(rotation=45, ha="right", fontsize=10)
+        plt.title("Best Lift Progression")
+        plt.xlabel("Week")
+        plt.ylabel("Max Weight (kg)")
+        plt.tight_layout()
+        
+        # Save to graphs directory
+        progress_path = GRAPHS_DIR / "progress.png"
+        plt.savefig(progress_path)
+        plt.close()
+
+        photo = FSInputFile(progress_path)
+        await callback.message.answer_photo(photo, caption="Your weekly progression graph")
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Graph", callback_data="graph")],
+            [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
+            [InlineKeyboardButton(text="Previous", callback_data="Back")],
+        ])
+        await callback.message.answer("Choose an option", reply_markup=keyboard)
+
+    elif choice == "orm":
+        data = await state.get_data()
+        user_id = callback.from_user.id
+        exercise_choice = data.get("exercise")
+
+        with SessionLocal() as session:
+            results = (
+                session.query(Workout)
+                .filter(Workout.user_id == user_id, Workout.exercise.ilike(exercise_choice))
+                .order_by(Workout.weight.desc())
+                .all()
+            )
+
+            if results:
+                best_set = [one_rep_max(r.weight, r.reps) for r in results]
+                best_lift = max(best_set)
+                await callback.message.answer(
+                    f"Theoretically your current max weight on {exercise_choice} is {best_lift:.1f} kg"
+                )
+            else:
+                await callback.message.answer(f"No data registered for {exercise_choice}")
+        
+        await state.clear()
+
+    elif choice == "Back":
+        await state.set_state(StatsForm.choice_type)
+        await callback.message.answer(
+            "What stats do you want to see?",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text="Overall")],
+                    [KeyboardButton(text="Progression")]
+                    [KeyboardButton(text="Recomendations")]
+                ],
+                resize_keyboard=True,
+            ),
+        )
+
+
