@@ -293,3 +293,288 @@ async def graph_or_ORM(callback: CallbackQuery, state: FSMContext):
         )
 
 
+# ============================================================================
+# Volume Progression
+# ============================================================================
+
+@stats_router.message(StatsForm.progression_state, F.text.casefold() == "volume progression")
+async def process_volume(message: Message, state: FSMContext):
+    """Process volume progression"""
+    await state.set_state(StatsForm.volume_state)
+    user_id = message.from_user.id
+
+    with SessionLocal() as session:
+        results = session.query(Workout).filter(Workout.user_id == user_id).all()
+        
+        weekly_volume = defaultdict(int)
+        for w in results:
+            week_start = (w.created_at - timedelta(days=w.created_at.weekday())).date()
+            weekly_volume[week_start] += calculate_volume(w.sets, w.reps, w.weight)
+
+        await state.update_data(
+            weekly_volume={str(k): v for k, v in weekly_volume.items()}
+        )
+
+        lines = []
+        for week_start, volume in weekly_volume.items():
+            week_str = week_start.strftime("%Y-%m-%d")
+            lines.append(f"The volume in the week starting at {week_str} was {volume}")
+
+        text = "\n".join(lines)
+        await message.answer(
+            f"Here is your weekly progression:\n{text}",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        await message.answer("If you want to see the volume bar charts type 'chart'")
+        await state.set_state(StatsForm.chart_state)
+
+
+@stats_router.message(StatsForm.chart_state)
+async def process_chart(message: Message, state: FSMContext):
+    """Generate volume progression chart"""
+    data = await state.get_data()
+    data_for_chart = {datetime.fromisoformat(k): v for k, v in data.get("weekly_volume", {}).items()}
+    weeks = list(data_for_chart.keys())
+    volumes = list(data_for_chart.values())
+
+    plt.figure(figsize=(10, 6))
+
+    if len(weeks) <= 2:
+        plt.plot(weeks, volumes, marker="o", linestyle="-")
+        plt.xlim(weeks[0] - pd.Timedelta(days=1), weeks[-1] + pd.Timedelta(days=1))
+    else:
+        plt.bar(weeks, volumes, width=5)
+
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+    plt.xticks(rotation=45, ha="right", fontsize=10)
+    plt.title("Volume Progression")
+    plt.xlabel("Week")
+    plt.ylabel("Volume")
+    plt.tight_layout()
+    
+    # Save to graphs directory
+    volume_path = GRAPHS_DIR / "volume_progress.png"
+    plt.savefig(volume_path)
+    plt.close()
+
+    photo = FSInputFile(volume_path)
+    await message.answer_photo(photo, caption="Your weekly volume progression")
+    
+    await state.set_state(StatsForm.choice_type)
+    await message.answer(
+        "What stats do you want to see?",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Overall")],
+                [KeyboardButton(text="Progression")]
+            ],
+            resize_keyboard=True,
+        ),
+    )
+
+
+# ============================================================================
+# Muscle Group Distribution
+# ============================================================================
+
+@stats_router.message(StatsForm.progression_state, F.text.casefold() == "muscle group distribution")
+async def process_muscle_grp_distribution(message: Message, state: FSMContext):
+    """Show muscle group distribution menu"""
+    await state.set_state(StatsForm.muscle_grp_state)
+    await message.answer("Muscle Distribution Menu", reply_markup=ReplyKeyboardRemove())
+    user_id = message.from_user.id
+
+    with SessionLocal() as session:
+        results = (
+            session.query(Workout)
+            .filter(Workout.user_id == user_id)
+            .order_by(Workout.created_at.desc())
+            .all()
+        )
+        
+        if not results:
+            await message.answer("No workouts found.")
+            return
+
+        workouts_by_date = defaultdict(list)
+        for w in results:
+            workout_date = w.created_at.date()
+            workouts_by_date[workout_date].append(w)
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=f"{date:%d-%m-%Y} — {len(workouts_by_date[date])} exercises",
+                        callback_data=f"workout_{date}"
+                    )
+                ]
+                for date in sorted(workouts_by_date.keys(), reverse=True)
+            ]
+        )
+
+        await message.answer("Select a workout date to see muscle distribution:", reply_markup=keyboard)
+
+
+@stats_router.callback_query(lambda c: c.data.startswith("workout_"))
+async def workout_selected(callback_query: CallbackQuery, state: FSMContext):
+    """Show muscle distribution pie chart for selected date"""
+    date_str = callback_query.data.split("_")[1]
+    workout_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+    with SessionLocal() as session:
+        workouts = (
+            session.query(Workout)
+            .filter(
+                Workout.user_id == callback_query.from_user.id,
+                Workout.created_at >= workout_date,
+                Workout.created_at < workout_date + timedelta(days=1),
+            )
+            .all()
+        )
+
+        muscle_volume = defaultdict(int)
+        for w in workouts:
+            volume = w.sets * w.reps * w.weight
+            muscle = exercise_to_muscle.get(w.exercise, "Other")
+            muscle_volume[muscle] += volume
+
+        labels = list(muscle_volume.keys())
+        sizes = list(muscle_volume.values())
+        explode = [0.1 if i == max(sizes) else 0 for i in sizes]
+        
+        fig, ax = plt.subplots(figsize=(10, 8))
+        ax.pie(sizes, explode=explode, labels=labels, autopct="%1.1f%%", shadow=True, startangle=90)
+        ax.axis("equal")
+
+        # Save to graphs directory
+        muscle_path = GRAPHS_DIR / "muscle_distribution.png"
+        plt.savefig(muscle_path)
+        plt.close(fig)
+
+        await callback_query.message.answer_photo(photo=FSInputFile(muscle_path))
+        
+        await state.set_state(StatsForm.choice_type)
+        await callback_query.message.answer(
+            "What stats do you want to see?",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text="Overall")],
+                    [KeyboardButton(text="Progression")],
+                ],
+                resize_keyboard=True,
+            )
+        )
+
+
+# ============================================================================
+# Heat Map
+# ============================================================================
+
+@stats_router.message(StatsForm.progression_state, F.text.casefold() == "heat map")
+async def process_heat_map(message: Message, state: FSMContext):
+    """Generate workout frequency heatmap"""
+    await state.set_state(StatsForm.heat_map_state)
+    user_id = message.from_user.id
+
+    with SessionLocal() as session:
+        workouts = session.query(Workout).filter(Workout.user_id == user_id).all()
+        
+        heatmap_data = defaultdict(lambda: [0, 0, 0, 0])
+        for w in workouts:
+            month = w.created_at.month
+            week_of_month = min((w.created_at.day - 1) // 7, 3)
+            heatmap_data[month][week_of_month] += 1
+
+        df = pd.DataFrame.from_dict(
+            heatmap_data,
+            orient="index",
+            columns=["Week 1", "Week 2", "Week 3", "Week 4"]
+        )
+
+        df = df.sort_index()
+        df.index = df.index.map(lambda m: calendar.month_abbr[m])
+
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(df, annot=True, cmap="YlOrRd", cbar=True, fmt="d")
+        plt.title("Workout Frequency per Month/Week")
+        plt.xlabel("Week of Month")
+        plt.ylabel("Month")
+        
+        # Save to graphs directory
+        heatmap_path = GRAPHS_DIR / "heatmap.png"
+        plt.savefig(heatmap_path)
+        plt.close()
+
+        photo = FSInputFile(heatmap_path)
+        await message.answer_photo(photo, caption="Your week by week heatmap")
+
+    await state.clear()
+
+
+# ============================================================================
+# Recommendations
+# ============================================================================
+
+@stats_router.message(StatsForm.choice_type, F.text.casefold() == "get recommendations")
+async def process_recommendations(message: Message, state: FSMContext):
+    """Generate training recommendations based on weak points"""
+    await state.set_state(StatsForm.recommendations_state)
+    user_id = message.from_user.id
+
+    with SessionLocal() as session:
+        overall_weekly_data = await compute_weekly_volume(user_id=user_id, session=session)
+        overall_muscle_group_data = await compute_muscle_group_stats(
+            user_id=user_id,
+            session=session,
+            current_time=datetime.now(timezone.utc)
+        )
+
+    await state.update_data(weekly_volume=overall_weekly_data)
+    await state.update_data(muscle_group_stats=overall_muscle_group_data)
+
+    weekly_volumes = group_muscle_volume_by_week(overall_muscle_group_data)
+
+    # Calculate relative volumes
+    relative_volumes = {}
+    for muscle, weeks in weekly_volumes.items():
+        rel = {}
+        for week_start, muscle_vol in weeks.items():
+            week_str = str(week_start)
+            total = overall_weekly_data.get(week_str, 0)
+            if total and total > 0:
+                rel[week_str] = (muscle_vol / total) * 100
+            else:
+                rel[week_str] = 0.0
+        relative_volumes[muscle] = rel
+
+    # Find weak points
+    weak_points = []
+    num_muscles = len(relative_volumes) if relative_volumes else 0
+    expected_percentage = (100 / num_muscles) if num_muscles else 0
+    
+    for muscle, week_data in relative_volumes.items():
+        for week_str, relative_volume in week_data.items():
+            if expected_percentage and relative_volume < expected_percentage * 0.7:
+                weak_points.append({
+                    "muscle_group": muscle,
+                    "week": week_str,
+                    "relative_volume": relative_volume,
+                    "deficit": expected_percentage - relative_volume
+                })
+
+    if weak_points:
+        lines = []
+        for wp in weak_points:
+            mg = wp.get("muscle_group")
+            week = wp.get("week")
+            rel = wp.get("relative_volume", 0.0)
+            deficit = wp.get("deficit", 0.0)
+            lines.append(f"{mg} — week {week}: {rel:.1f}% of weekly volume (deficit {deficit:.1f}%)")
+        message_text = "Weak points detected:\n" + "\n".join(lines)
+    else:
+        message_text = "No weak points detected. Great job!"
+
+    await message.answer(message_text)
+    await state.set_state(StatsForm.choice_type)
