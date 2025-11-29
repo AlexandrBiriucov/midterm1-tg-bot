@@ -48,8 +48,6 @@ GRAPHS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "graphs"
 GRAPHS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-
-
 # ============================================================================
 # FSM States
 # ============================================================================
@@ -153,6 +151,29 @@ async def process_time_period(message: Message, state: FSMContext):
             ],
             resize_keyboard=True,
         )
+    )
+
+
+# ============================================================================
+# Progression Choice
+# ============================================================================
+
+@stats_router.message(StatsForm.choice_type, F.text.casefold() == "progression")
+async def process_progression_choice(message: Message, state: FSMContext):
+    """Handle 'Progression' statistics choice"""
+    await state.update_data(choice_type="progression")
+    await state.set_state(StatsForm.progression_state)
+    await message.answer(
+        "Choose the progression",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Best Lift Progression")],
+                [KeyboardButton(text="Volume Progression")],
+                [KeyboardButton(text="Muscle Group Distribution")],
+                [KeyboardButton(text="Heat Map")]
+            ],
+            resize_keyboard=True,
+        ),
     )
 
 
@@ -286,7 +307,6 @@ async def graph_or_ORM(callback: CallbackQuery, state: FSMContext):
                 keyboard=[
                     [KeyboardButton(text="Overall")],
                     [KeyboardButton(text="Progression")]
-                    [KeyboardButton(text="Recomendations")]
                 ],
                 resize_keyboard=True,
             ),
