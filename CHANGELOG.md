@@ -26,7 +26,7 @@
 
 ## 🗓️ October 27, 2025 — Feature Integration Phase
 
-## Developer 2: Exercise Library ([#21](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/21) and [#19](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19) by [veacheslavv](https://github.com/veacheslavv))
+## Developer 2: Exercise Library ([#21](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/21), [#19](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19) by [veacheslavv](https://github.com/veacheslavv))
 
 ### 📚 Exercise Library System
 
@@ -37,7 +37,7 @@
 
 ---
 
-## Developer 5: Notifications, Nutrition, Timer and Final Integration ([#22](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/22) and [#18](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18), [#17](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17), [#15](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15) by [Orm-Max](https://github.com/Orm-Max))
+## Developer 5: Notifications, Nutrition, Timer and Final Integration ([#22](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/22), [#18](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18), [#17](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17), [#15](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15) by [Orm-Max](https://github.com/Orm-Max))
 
 ### 🔗 Router Integration
 
@@ -101,7 +101,7 @@
 
 ---
 
-## 🗓️ October 22, 2025 — Timers, Notifications & Nutrition (  [#3](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3) and [#5](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/5) by [Orm-Max](https://github.com/Orm-Max),)
+## 🗓️ October 22, 2025 — Timers, Notifications & Nutrition (  [#3](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3), [#5](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/5) by [Orm-Max](https://github.com/Orm-Max),)
 
 ### ⏱️ Timer System
 
