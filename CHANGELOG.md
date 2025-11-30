@@ -26,7 +26,7 @@
 
 ## 🗓️ October 27, 2025 — Feature Integration Phase
 
-## Developer 2: Exercise Library ([#19](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19) by [veacheslavv](https://github.com/veacheslavv))
+## Developer 2: Exercise Library ([#21](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/21) and [#19](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19) by [veacheslavv](https://github.com/veacheslavv))
 
 ### 📚 Exercise Library System
 
@@ -37,7 +37,11 @@
 
 ---
 
-## Developer 5: Notifications, Nutrition & Timer ([#18](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18), [#17](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17), [#15](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15) by [Orm-Max](https://github.com/Orm-Max))
+## Developer 5: Notifications, Nutrition, Timer and Final Integration ([#22](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/22) and [#18](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18), [#17](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17), [#15](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15) by [Orm-Max](https://github.com/Orm-Max))
+
+### 🔗 Router Integration
+
+- Connected all feature routers in main.py for centralized architecture ([a27845e](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/22/commits/a27845e))
 
 ### 🔔 Notification System
 
