@@ -1,6 +1,14 @@
 # 🧾 CHANGELOG.md
 
-## 🗓️ October 29, 2025 — Midterm II Updates ([#25](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/25) by [AlexxxCP](https://github.com/AlexxxCP))
+## 🗓️ December 4, 2025 — Translation implementation  ([#27](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/27) by [AlexxxCP](https://github.com/AlexxxCP))
+
+### 🌐 Translation
+
+- The first translation implementation in our bot  ([72b67af](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/25/commits/72b67af))
+
+---
+
+## 🗓️ November 29, 2025 — Midterm II Updates ([#25](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/25) by [AlexxxCP](https://github.com/AlexxxCP))
 
 ### 📝 Documentation
 
@@ -8,7 +16,7 @@
 
 ---
 
-## 🗓️ October 28, 2025 — Midterm I Updates ([#24](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/24) by [AlexxxCP](https://github.com/AlexxxCP))
+## 🗓️ November 28, 2025 — Midterm I Updates ([#24](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/24) by [AlexxxCP](https://github.com/AlexxxCP))
 
 ### 📝 Documentation
 
@@ -16,7 +24,7 @@
 
 ---
 
-## 🗓️ October 27, 2025 — Production Deployment ([#23](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/23) by [Orm-Max](https://github.com/Orm-Max))
+## 🗓️ November 27, 2025 — Production Deployment ([#23](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/23) by [Orm-Max](https://github.com/Orm-Max))
 
 ### 🚀 Deployment
 
@@ -24,9 +32,9 @@
 
 ---
 
-## 🗓️ October 27, 2025 — Feature Integration Phase
+## 🗓️ November 27, 2025 — Feature Integration Phase
 
-## Developer 2: Exercise Library ([#21](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/21), [#19](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19) by [veacheslavv](https://github.com/veacheslavv))
+### Exercise Library ([#19](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/19) by [veacheslavv](https://github.com/veacheslavv))
 
 ### 📚 Exercise Library System
 
@@ -37,11 +45,7 @@
 
 ---
 
-## Developer 5: Notifications, Nutrition, Timer and Final Integration ([#22](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/22), [#18](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18), [#17](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17), [#15](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15) by [Orm-Max](https://github.com/Orm-Max))
-
-### 🔗 Router Integration
-
-- Connected all feature routers in main.py for centralized architecture ([a27845e](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/22/commits/a27845e))
+### Notifications, Nutrition & Timer ([#18](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/18), [#17](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/17), [#15](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/15) by [Orm-Max](https://github.com/Orm-Max))
 
 ### 🔔 Notification System
 
@@ -64,7 +68,7 @@
 
 ---
 
-## Developer 1: Workout Tracking ([#16](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/16) by [daniilcerneaga](https://github.com/daniilcerneaga))
+### Workout Tracking ([#16](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/16) by [daniilcerneaga](https://github.com/daniilcerneaga))
 
 ### 📝 Workout Logging System
 
@@ -73,7 +77,7 @@
 
 ---
 
-## Developer 3: Statistics & Analytics ([#14](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/14), [#13](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/13), [#10](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/10) by [AlexandrBiriucov](https://github.com/AlexandrBiriucov))
+### Statistics & Analytics ([#14](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/14), [#13](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/13), [#10](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/10) by [AlexandrBiriucov](https://github.com/AlexandrBiriucov))
 
 ### 📊 Workout Analytics
 
@@ -83,7 +87,7 @@
 
 ---
 
-## Developer 4: Custom Routines ([#12](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/12) by [DmitriiSitarciuc](https://github.com/DmitriiSitarciuc))
+### Custom Routines ([#12](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/12) by [DmitriiSitarciuc](https://github.com/DmitriiSitarciuc))
 
 ### 🏋️ Workout Routine Builder
 
@@ -91,7 +95,7 @@
 
 ---
 
-## 🗓️ October 22, 2025 — Architecture Refactor ([#9](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/9), [#7](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/7) by [Orm-Max](https://github.com/Orm-Max))
+## 🗓️ November 20, 2025 — Architecture Refactor ([#9](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/9), [#7](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/7) by [Orm-Max](https://github.com/Orm-Max))
 
 ### 🏗️ New Bot Architecture
 
@@ -101,7 +105,7 @@
 
 ---
 
-## 🗓️ October 22, 2025 — Timers, Notifications & Nutrition (  [#3](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3), [#5](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/5) by [Orm-Max](https://github.com/Orm-Max),)
+## 🗓️ November 2, 2025 — Timers, Notifications & Nutrition (  [#3](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/3) and [#5](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/5) by [Orm-Max](https://github.com/Orm-Max),)
 
 ### ⏱️ Timer System
 
@@ -122,14 +126,14 @@
     
 ---
 
-## 🗓️ October 20, 2025 — Routines System ([#4](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/4) by [DmitriiSitarciuc](https://github.com/DmitriiSitarciuc))
+## 🗓️ November 1, 2025 — Routines System ([#4](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/4) by [DmitriiSitarciuc](https://github.com/DmitriiSitarciuc))
 
 ### 🏋️ Workout Routines
 
 - Added routines system with /routines and /custom_routines commands ([2c1f700](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/4/commits/2c1f700))
 
 ---
-## 🗓️ October 18, 2025 — Exercise Library ([#2](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/2) by [veacheslavv](https://github.com/veacheslavv))
+## 🗓️ October 31, 2025 — Exercise Library ([#2](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/2) by [veacheslavv](https://github.com/veacheslavv))
 
 ### 📚 Exercise Database
 
@@ -138,7 +142,7 @@
 - Removed blank line in exercise_db.py ([401d114](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/2/commits/401d114))
 
 ---
-## 🗓️ October 17, 2025 — Statistics & Recommendations ([#1](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/1) by [AlexandrBiriucov](https://github.com/AlexandrBiriucov))
+## 🗓️ October 30, 2025 — Statistics & Recommendations ([#1](https://github.com/AlexandrBiriucov/midterm1-tg-bot/pull/1) by [AlexandrBiriucov](https://github.com/AlexandrBiriucov))
 
 ### 📊 Muscle Group Distribution
 
