@@ -225,6 +225,29 @@ def get_training_days_by_year(telegram_id: int, year: int) -> dict[int, list[int
 
 
 # ==========================================
+# РАБОТА С ЯЗЫКОМ
+# ==========================================
+
+def get_lang(telegram_id: int) -> str:
+    """Получает язык пользователя из БД"""
+    with get_session() as session:
+        user = session.query(User).filter_by(telegram_id=telegram_id).first()
+        if user and user.language:
+            return user.language
+        return "en"  # По умолчанию английский
+
+
+def set_user_language(telegram_id: int, language: str):
+    """Устанавливает язык пользователя"""
+    with get_session() as session:
+        user = session.query(User).filter_by(telegram_id=telegram_id).first()
+        if user:
+            user.language = language
+            user.updated_at = datetime.now(timezone.utc)
+            session.commit()
+
+
+# ==========================================
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 # ==========================================
 

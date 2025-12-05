@@ -12,13 +12,15 @@ sys.path.insert(0, str(ROOT_DIR))
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart, Command
+
+from localization.utils import t
 
 from bot.config import BOT_TOKEN
 from bot.core.database import init_db
 from bot.features.dev1_workout_tracking.handlers import router as workout_router
-from bot.features.dev1_workout_tracking.services import get_or_create_user
+from bot.features.dev1_workout_tracking.services import get_or_create_user, get_lang, set_user_language
 from bot.features.dev2_exercise_library.exercise_handlers import exercise_router
 from bot.features.dev2_exercise_library.exercise_db import ExerciseDatabase
 from bot.features.dev3_progress_stats.stats_handlers import stats_router
@@ -48,111 +50,88 @@ echo_router = Router()
 
 @main_router.message(CommandStart())
 async def on_start(m: Message):
-    """Welcome message"""
+    """Welcome message with language selection"""
     # Create/get user on start
-    get_or_create_user(
+    user = get_or_create_user(
         telegram_id=m.from_user.id,
         username=m.from_user.username,
         first_name=m.from_user.first_name,
         last_name=m.from_user.last_name
     )
 
-    welcome_text = f"""
-👋 <b>Hey, {m.from_user.first_name}!</b>
+    # Check if user has language set
+    lang = get_lang(m.from_user.id)
 
-I'm your personal fitness assistant! I'll help you with:
+    # If language is not set (new user or default), show language selection
+    if not user.language or user.language == "en":
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🇬🇧 English", callback_data="set_lang_en")],
+            [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="set_lang_ru")]
+        ])
 
-🏋️ <b>Workout Tracking</b>
-   • Log exercises and sets
-   • Create custom workout routines
-   • View training history
+        await m.answer(
+            "🌍 <b>Welcome! Please choose your language:</b>\n"
+            "🌍 <b>Добро пожаловать! Пожалуйста, выберите язык:</b>",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    else:
+        # User already has language set, show welcome
+        await show_welcome_message(m, lang)
 
-📚 <b>Exercise Library</b>
-   • 270+ exercises with detailed instructions
-   • Filter by muscle group, equipment, difficulty
-   • Professional technique tips
-   • Use /exercise to browse
 
-📊 <b>Progress Monitoring</b>
-   • Analyze statistics
-   • Track personal records
-   • Visualize results
-   • Use /statistics to explore
+@main_router.callback_query(F.data.startswith("set_lang_"))
+async def set_language_callback(callback: CallbackQuery):
+    """Handle language selection"""
+    new_lang = callback.data.replace("set_lang_", "")
+    user_id = callback.from_user.id
 
-🎯 <b>Custom Routines</b>
-   • Browse preset workout programs
-   • Create your own training plans
-   • Track routine usage
-   • Use /routines and /custom_routines
+    # Save language to database
+    set_user_language(user_id, new_lang)
 
-⏱️ <b>Rest Timers</b>
-   • Set custom timers for rest periods
-   • Save timer presets for quick access
-   • Use /timer to get started
+    # Show welcome message in selected language
+    await callback.message.delete()
+    await show_welcome_message(callback.message, new_lang)
+    await callback.answer()
 
-🍎 <b>Nutrition Tracking</b>
-   • Track calories and macronutrients
-   • Search 350,000+ foods via USDA database
-   • Set personalized nutrition goals
-   • View daily nutrition summary
-   • Use /nutrition to start
 
-📅 <b>Training Notifications</b>
-   • Schedule workout reminders
-   • Custom notification times
-   • Weekly training schedule
-   • Use /notification to set up
-
-Use /help to see all available commands!
-"""
-    
+async def show_welcome_message(m: Message, lang: str):
+    """Show welcome message in user's language"""
+    welcome_text = t("main_welcome", lang, name=m.from_user.first_name)
     await m.answer(welcome_text, parse_mode="HTML")
+
+
+@main_router.message(Command("language"))
+async def change_language(m: Message):
+    """Change bot language"""
+    lang = get_lang(m.from_user.id)
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇬🇧 English", callback_data="set_lang_en")],
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="set_lang_ru")]
+    ])
+
+    await m.answer(
+        t("choose_language", lang),
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
 
 
 @main_router.message(Command("help"))
 async def on_help(m: Message):
     """List of all commands"""
-    help_text = """
-📋 <b>Available Commands:</b>
-
-<b>🏋️ Workouts:</b>
-/log (e.g., BenchPress 3x10x50) - Log an exercise 
-/today - Show today's workouts
-/check_training (e.g., 03.09.2025) - Check workouts by date
-/list_trainings - List training days by year
-/profile - View your profile
-
-<b>🎯 Workout Routines:</b>
-/routines - Browse preset workout programs by level
-/custom_routines - Create and manage your own routines
-
-<b>📊 Statistics & Progress:</b>
-/statistics - View comprehensive statistics
-
-<b>📚 Exercise Library:</b>
-/exercise - Browse exercise database 
-/exercise_stats - View library statistics
-
-<b>⏱️ Rest Timers:</b>
-/timer - Set and manage rest timers
-
-<b>🍎 Nutrition Tracking:</b>
-/nutrition - Track meals and macros
-
-<b>📅 Training Notifications:</b>
-/notification - Manage training reminders
-
-"""
-    
+    lang = get_lang(m.from_user.id)
+    help_text = t("main_help", lang)
     await m.answer(help_text, parse_mode="HTML")
 
 
 @echo_router.message(F.text)
 async def echo(m: Message):
     """Echo handler for unprocessed messages"""
+    lang = get_lang(m.from_user.id)
     await m.answer(
-        f"You wrote: {m.text}\n\n"
-        "Use /help to view available commands."
+        t("echo_message", lang, text=m.text)
     )
 
 

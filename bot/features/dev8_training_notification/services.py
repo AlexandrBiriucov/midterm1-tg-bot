@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, time
 from typing import Dict, List, Tuple, Optional
 from aiogram import Bot
 
+from localization.utils import t
 from bot.core.database import get_session
 from bot.core.models import TrainingNotification
 
@@ -54,9 +55,9 @@ def load_trainings(chat_id: int) -> List[Tuple[int, time, int]]:
                     TrainingNotification.minute
                 )\
                 .all()
-            
+
             return [
-                (n.weekday, time(n.hour, n.minute), n.reminder_minutes) 
+                (n.weekday, time(n.hour, n.minute), n.reminder_minutes)
                 for n in notifications
             ]
     except Exception as e:
@@ -79,7 +80,7 @@ def update_training(chat_id: int, index: int, weekday: int, train_time: time, re
                     TrainingNotification.minute
                 )\
                 .all()
-            
+
             if 0 <= index < len(notifications):
                 notification = notifications[index]
                 notification.weekday = weekday
@@ -108,7 +109,7 @@ def delete_training(chat_id: int, index: int) -> bool:
                     TrainingNotification.minute
                 )\
                 .all()
-            
+
             if 0 <= index < len(notifications):
                 notification = notifications[index]
                 session.delete(notification)
@@ -133,6 +134,22 @@ def get_notification_count(chat_id: int) -> int:
 
 
 # ============================================================================
+# HELPER FUNCTION - получение языка пользователя
+# ============================================================================
+
+def get_user_lang(chat_id: int) -> str:
+    """
+    Get user's language from database.
+    Returns 'en' by default if not found.
+    """
+    try:
+        from bot.features.dev1_workout_tracking.services import get_lang
+        return get_lang(chat_id)
+    except Exception:
+        return "en"
+
+
+# ============================================================================
 # BACKGROUND TASK MANAGEMENT
 # ============================================================================
 
@@ -147,36 +164,48 @@ async def reminder_loop(bot: Bot, chat_id: int, weekday: int, train_time: time, 
             days_ahead = weekday - now.weekday()
             if days_ahead < 0:
                 days_ahead += 7
-            
+
             next_train_dt = now + timedelta(days=days_ahead)
             next_train_dt = next_train_dt.replace(
-                hour=train_time.hour, 
-                minute=train_time.minute, 
-                second=0, 
+                hour=train_time.hour,
+                minute=train_time.minute,
+                second=0,
                 microsecond=0
             )
-            
+
             if next_train_dt <= now:
                 next_train_dt += timedelta(days=7)
-            
+
             next_reminder_dt = next_train_dt - timedelta(minutes=reminder_minutes)
-            
+
             if next_reminder_dt <= now:
                 next_train_dt += timedelta(days=7)
                 next_reminder_dt = next_train_dt - timedelta(minutes=reminder_minutes)
-            
+
             wait_seconds = (next_reminder_dt - now).total_seconds()
             await asyncio.sleep(wait_seconds)
-            
-            # Format time string
+
+            # Get user's language
+            lang = get_user_lang(chat_id)
+
+            # Format time string - используем переводы
             if reminder_minutes >= 60:
                 hours = reminder_minutes // 60
                 mins = reminder_minutes % 60
-                time_str = f"{hours} hour{'s' if hours > 1 else ''}" + (f" {mins} min" if mins else "")
+
+                if hours == 1:
+                    time_str = t("notif_time_1hour", lang)
+                else:
+                    time_str = t("notif_time_hours", lang, hours=hours)
+
+                if mins:
+                    min_str = t("notif_time_minutes", lang, minutes=mins)
+                    time_str = f"{time_str} {min_str}"
             else:
-                time_str = f"{reminder_minutes} min"
-            
-            await bot.send_message(chat_id, f"⏰ Training in {time_str}!")
+                time_str = t("notif_time_minutes", lang, minutes=reminder_minutes)
+
+            # Send reminder message
+            await bot.send_message(chat_id, t("notif_reminder_message", lang, time_str=time_str))
             
         except asyncio.CancelledError:
             # Task was cancelled, exit gracefully

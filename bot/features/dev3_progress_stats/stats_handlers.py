@@ -27,6 +27,9 @@ from aiogram.types import (
     FSInputFile
 )
 
+from localization.utils import t
+from bot.features.dev1_workout_tracking.services import get_lang
+
 from bot.core.database import SessionLocal
 from bot.core.models import Workout
 from .muscle_groups import exercise_to_muscle
@@ -76,14 +79,17 @@ class StatsForm(StatesGroup):
 @stats_router.message(Command("statistics"))
 async def stats_command(message: Message, state: FSMContext):
     """Main entry point for statistics"""
+    lang = get_lang(message.from_user.id)
     await state.set_state(StatsForm.choice_type)
+    await state.update_data(lang=lang)
+
     await message.answer(
-        "What stats do you want to see?",
+        t("stats_main_menu", lang),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="Overall")],
-                [KeyboardButton(text="Progression")],
-                [KeyboardButton(text="Get Recommendations")],
+                [KeyboardButton(text=t("stats_btn_overall", lang))],
+                [KeyboardButton(text=t("stats_btn_progression", lang))],
+                [KeyboardButton(text=t("stats_btn_recommendations", lang))],
             ],
             resize_keyboard=True,
         ),
@@ -94,18 +100,21 @@ async def stats_command(message: Message, state: FSMContext):
 # Overall Stats - Time Period Selection
 # ============================================================================
 
-@stats_router.message(StatsForm.choice_type, F.text.casefold() == "overall")
+@stats_router.message(StatsForm.choice_type, F.text.in_(["Overall", "Общая"]))
 async def process_overall_choice(message: Message, state: FSMContext):
     """Handle 'Overall' statistics choice"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     await state.update_data(choice_type="overall")
     await state.set_state(StatsForm.time_period)
     await message.answer(
-        "Choose the time period of the stats",
+        t("stats_choose_period", lang),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="Today")],
-                [KeyboardButton(text="This Week")],
-                [KeyboardButton(text="All Time")]
+                [KeyboardButton(text=t("stats_btn_today", lang))],
+                [KeyboardButton(text=t("stats_btn_week", lang))],
+                [KeyboardButton(text=t("stats_btn_alltime", lang))]
             ],
             resize_keyboard=True,
         ),
@@ -115,39 +124,43 @@ async def process_overall_choice(message: Message, state: FSMContext):
 @stats_router.message(StatsForm.time_period)
 async def process_time_period(message: Message, state: FSMContext):
     """Process time period selection and show workouts"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     time_period = message.text.strip()
     user_id = message.from_user.id
     now = datetime.now(timezone.utc)
-    
+
     with SessionLocal() as session:
         query = session.query(Workout).filter(Workout.user_id == user_id)
 
-        if time_period == "Today":
+        # Check both English and Russian button text
+        if time_period in [t("stats_btn_today", "en"), t("stats_btn_today", "ru")]:
             start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
             query = query.filter(Workout.created_at >= start, Workout.created_at <= now)
-        elif time_period == "This Week":
+        elif time_period in [t("stats_btn_week", "en"), t("stats_btn_week", "ru")]:
             start = now - timedelta(days=7)
             query = query.filter(Workout.created_at >= start, Workout.created_at <= now)
-        
+
         results = query.order_by(Workout.created_at.desc()).all()
 
         if not results:
-            await message.answer("No workouts found for this period.")
+            await message.answer(t("stats_no_workouts", lang))
         else:
             text = "\n".join(
                 f"{w.created_at:%d-%m %H:%M} — {w.exercise} {w.sets}x{w.reps}x{w.weight} kg"
                 for w in results
             )
-            await message.answer(f"Here are your workouts:\n{text}")
+            await message.answer(t("stats_your_workouts", lang, workouts=text))
 
     await state.set_state(StatsForm.choice_type)
     await message.answer(
-        "What stats do you want to see next?",
+        t("stats_main_menu", lang),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="Overall")],
-                [KeyboardButton(text="Progression")],
-                [KeyboardButton(text="Recomendation")],
+                [KeyboardButton(text=t("stats_btn_overall", lang))],
+                [KeyboardButton(text=t("stats_btn_progression", lang))],
+                [KeyboardButton(text=t("stats_btn_recommendations", lang))],
             ],
             resize_keyboard=True,
         )
@@ -158,19 +171,22 @@ async def process_time_period(message: Message, state: FSMContext):
 # Progression Choice
 # ============================================================================
 
-@stats_router.message(StatsForm.choice_type, F.text.casefold() == "progression")
+@stats_router.message(StatsForm.choice_type, F.text.in_(["Progression", "Прогресс"]))
 async def process_progression_choice(message: Message, state: FSMContext):
     """Handle 'Progression' statistics choice"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     await state.update_data(choice_type="progression")
     await state.set_state(StatsForm.progression_state)
     await message.answer(
-        "Choose the progression",
+        t("stats_choose_progression", lang),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="Best Lift Progression")],
-                [KeyboardButton(text="Volume Progression")],
-                [KeyboardButton(text="Muscle Group Distribution")],
-                [KeyboardButton(text="Heat Map")]
+                [KeyboardButton(text=t("stats_btn_best_lift", lang))],
+                [KeyboardButton(text=t("stats_btn_volume", lang))],
+                [KeyboardButton(text=t("stats_btn_muscle_dist", lang))],
+                [KeyboardButton(text=t("stats_btn_heatmap", lang))]
             ],
             resize_keyboard=True,
         ),
@@ -181,13 +197,16 @@ async def process_progression_choice(message: Message, state: FSMContext):
 # Best Lift Progression
 # ============================================================================
 
-@stats_router.message(StatsForm.progression_state, F.text.casefold() == "best lift progression")
+@stats_router.message(StatsForm.progression_state, F.text.in_(["Best Lift", "Лучший подъём"]))
 async def process_best_lift(message: Message, state: FSMContext):
     """Start best lift progression flow"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     await state.update_data(progression="best_lift")
     await state.set_state(StatsForm.best_lift)
     await message.answer(
-        "Which exercise do you want to choose?\nPlease write the exercise name (BenchPress, Squat, Deadlift...)",
+        t("stats_enter_exercise", lang),
         reply_markup=ReplyKeyboardRemove(),
     )
 
@@ -195,6 +214,9 @@ async def process_best_lift(message: Message, state: FSMContext):
 @stats_router.message(StatsForm.best_lift)
 async def process_best_lift_exercise_choice(message: Message, state: FSMContext):
     """Process exercise choice and show weekly progression"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     exercise = message.text.strip()
     await state.update_data(exercise=exercise)
     user_id = message.from_user.id
@@ -208,7 +230,7 @@ async def process_best_lift_exercise_choice(message: Message, state: FSMContext)
         )
 
         if not results:
-            await message.answer(f"No data found for {exercise}")
+            await message.answer(t("stats_no_data_exercise", lang, exercise=exercise))
             await state.clear()
             return
 
@@ -220,36 +242,38 @@ async def process_best_lift_exercise_choice(message: Message, state: FSMContext)
         lines = []
         for week_start, max_weight in weekly_max.items():
             week_str = week_start.strftime("%Y-%m-%d")
-            lines.append(f"Week starting {week_str}: best result was {max_weight} kg")
+            lines.append(t("stats_week_result", lang, week=week_str, weight=max_weight))
 
         text = "\n".join(lines)
-        await message.answer(f"Here is your weekly progression:\n{text}")
-        
+        await message.answer(t("stats_weekly_progression", lang, progression=text))
+
         await state.update_data(weekly_max={str(k): v for k, v in weekly_max.items()})
         await state.set_state(StatsForm.best_lift_action)
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Graph", callback_data="graph")],
-            [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
-            [InlineKeyboardButton(text="Previous", callback_data="Back")],
+            [InlineKeyboardButton(text=t("stats_btn_graph", lang), callback_data="graph")],
+            [InlineKeyboardButton(text=t("stats_btn_orm", lang), callback_data="orm")],
+            [InlineKeyboardButton(text=t("stats_btn_back", lang), callback_data="Back")],
         ])
-        await message.answer("Choose an option", reply_markup=keyboard)
+        await message.answer(t("stats_choose_option", lang), reply_markup=keyboard)
 
 
 @stats_router.callback_query(F.data.in_(["graph", "orm", "Back"]))
 async def graph_or_ORM(callback: CallbackQuery, state: FSMContext):
     """Handle graph/ORM/back callback buttons"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     choice = callback.data
     await callback.answer()
 
     if choice == "graph":
-        data = await state.get_data()
         weekly_max = {datetime.fromisoformat(k): v for k, v in data.get("weekly_max", {}).items()}
         weeks = list(weekly_max.keys())
         weights = list(weekly_max.values())
 
         if not weeks:
-            await callback.message.answer("No weekly data available to display.")
+            await callback.message.answer(t("stats_no_weekly_data", lang))
             return
 
         plt.figure(figsize=(10, 6))
@@ -259,24 +283,22 @@ async def graph_or_ORM(callback: CallbackQuery, state: FSMContext):
         plt.xlabel("Week")
         plt.ylabel("Max Weight (kg)")
         plt.tight_layout()
-        
-        # Save to graphs directory
+
         progress_path = GRAPHS_DIR / "progress.png"
         plt.savefig(progress_path)
         plt.close()
 
         photo = FSInputFile(progress_path)
-        await callback.message.answer_photo(photo, caption="Your weekly progression graph")
-        
+        await callback.message.answer_photo(photo, caption=t("stats_graph_caption", lang))
+
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Graph", callback_data="graph")],
-            [InlineKeyboardButton(text="One Repetition Max", callback_data="orm")],
-            [InlineKeyboardButton(text="Previous", callback_data="Back")],
+            [InlineKeyboardButton(text=t("stats_btn_graph", lang), callback_data="graph")],
+            [InlineKeyboardButton(text=t("stats_btn_orm", lang), callback_data="orm")],
+            [InlineKeyboardButton(text=t("stats_btn_back", lang), callback_data="Back")],
         ])
-        await callback.message.answer("Choose an option", reply_markup=keyboard)
+        await callback.message.answer(t("stats_choose_option", lang), reply_markup=keyboard)
 
     elif choice == "orm":
-        data = await state.get_data()
         user_id = callback.from_user.id
         exercise_choice = data.get("exercise")
 
@@ -292,21 +314,21 @@ async def graph_or_ORM(callback: CallbackQuery, state: FSMContext):
                 best_set = [one_rep_max(r.weight, r.reps) for r in results]
                 best_lift = max(best_set)
                 await callback.message.answer(
-                    f"Theoretically your current max weight on {exercise_choice} is {best_lift:.1f} kg"
+                    t("stats_orm_result", lang, exercise=exercise_choice, weight=f"{best_lift:.1f}")
                 )
             else:
-                await callback.message.answer(f"No data registered for {exercise_choice}")
-        
+                await callback.message.answer(t("stats_no_data_exercise", lang, exercise=exercise_choice))
+
         await state.clear()
 
     elif choice == "Back":
         await state.set_state(StatsForm.choice_type)
         await callback.message.answer(
-            "What stats do you want to see?",
+            t("stats_main_menu", lang),
             reply_markup=ReplyKeyboardMarkup(
                 keyboard=[
-                    [KeyboardButton(text="Overall")],
-                    [KeyboardButton(text="Progression")]
+                    [KeyboardButton(text=t("stats_btn_overall", lang))],
+                    [KeyboardButton(text=t("stats_btn_progression", lang))]
                 ],
                 resize_keyboard=True,
             ),
@@ -317,15 +339,18 @@ async def graph_or_ORM(callback: CallbackQuery, state: FSMContext):
 # Volume Progression
 # ============================================================================
 
-@stats_router.message(StatsForm.progression_state, F.text.casefold() == "volume progression")
+@stats_router.message(StatsForm.progression_state, F.text.in_(["Volume", "Объём"]))
 async def process_volume(message: Message, state: FSMContext):
     """Process volume progression"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     await state.set_state(StatsForm.volume_state)
     user_id = message.from_user.id
 
     with SessionLocal() as session:
         results = session.query(Workout).filter(Workout.user_id == user_id).all()
-        
+
         weekly_volume = defaultdict(int)
         for w in results:
             week_start = (w.created_at - timedelta(days=w.created_at.weekday())).date()
@@ -338,14 +363,14 @@ async def process_volume(message: Message, state: FSMContext):
         lines = []
         for week_start, volume in weekly_volume.items():
             week_str = week_start.strftime("%Y-%m-%d")
-            lines.append(f"The volume in the week starting at {week_str} was {volume}")
+            lines.append(t("stats_volume_week", lang, week=week_str, volume=volume))
 
         text = "\n".join(lines)
         await message.answer(
-            f"Here is your weekly progression:\n{text}",
+            t("stats_weekly_progression", lang, progression=text),
             reply_markup=ReplyKeyboardRemove()
         )
-        await message.answer("If you want to see the volume bar charts type 'chart'")
+        await message.answer(t("stats_type_chart", lang))
         await state.set_state(StatsForm.chart_state)
 
 
@@ -353,6 +378,8 @@ async def process_volume(message: Message, state: FSMContext):
 async def process_chart(message: Message, state: FSMContext):
     """Generate volume progression chart"""
     data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     data_for_chart = {datetime.fromisoformat(k): v for k, v in data.get("weekly_volume", {}).items()}
     weeks = list(data_for_chart.keys())
     volumes = list(data_for_chart.values())
@@ -372,22 +399,21 @@ async def process_chart(message: Message, state: FSMContext):
     plt.xlabel("Week")
     plt.ylabel("Volume")
     plt.tight_layout()
-    
-    # Save to graphs directory
+
     volume_path = GRAPHS_DIR / "volume_progress.png"
     plt.savefig(volume_path)
     plt.close()
 
     photo = FSInputFile(volume_path)
-    await message.answer_photo(photo, caption="Your weekly volume progression")
-    
+    await message.answer_photo(photo, caption=t("stats_volume_caption", lang))
+
     await state.set_state(StatsForm.choice_type)
     await message.answer(
-        "What stats do you want to see?",
+        t("stats_main_menu", lang),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="Overall")],
-                [KeyboardButton(text="Progression")]
+                [KeyboardButton(text=t("stats_btn_overall", lang))],
+                [KeyboardButton(text=t("stats_btn_progression", lang))]
             ],
             resize_keyboard=True,
         ),
@@ -398,11 +424,14 @@ async def process_chart(message: Message, state: FSMContext):
 # Muscle Group Distribution
 # ============================================================================
 
-@stats_router.message(StatsForm.progression_state, F.text.casefold() == "muscle group distribution")
+@stats_router.message(StatsForm.progression_state, F.text.in_(["Muscle Groups", "Группы мышц"]))
 async def process_muscle_grp_distribution(message: Message, state: FSMContext):
     """Show muscle group distribution menu"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     await state.set_state(StatsForm.muscle_grp_state)
-    await message.answer("Muscle Distribution Menu", reply_markup=ReplyKeyboardRemove())
+    await message.answer(t("stats_muscle_menu", lang), reply_markup=ReplyKeyboardRemove())
     user_id = message.from_user.id
 
     with SessionLocal() as session:
@@ -412,9 +441,9 @@ async def process_muscle_grp_distribution(message: Message, state: FSMContext):
             .order_by(Workout.created_at.desc())
             .all()
         )
-        
+
         if not results:
-            await message.answer("No workouts found.")
+            await message.answer(t("stats_no_workouts", lang))
             return
 
         workouts_by_date = defaultdict(list)
@@ -426,7 +455,7 @@ async def process_muscle_grp_distribution(message: Message, state: FSMContext):
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=f"{date:%d-%m-%Y} — {len(workouts_by_date[date])} exercises",
+                        text=f"{date:%d-%m-%Y} — {len(workouts_by_date[date])} {t('stats_exercises', lang)}",
                         callback_data=f"workout_{date}"
                     )
                 ]
@@ -434,12 +463,15 @@ async def process_muscle_grp_distribution(message: Message, state: FSMContext):
             ]
         )
 
-        await message.answer("Select a workout date to see muscle distribution:", reply_markup=keyboard)
+        await message.answer(t("stats_select_workout_date", lang), reply_markup=keyboard)
 
 
 @stats_router.callback_query(lambda c: c.data.startswith("workout_"))
 async def workout_selected(callback_query: CallbackQuery, state: FSMContext):
     """Show muscle distribution pie chart for selected date"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     date_str = callback_query.data.split("_")[1]
     workout_date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
@@ -463,25 +495,24 @@ async def workout_selected(callback_query: CallbackQuery, state: FSMContext):
         labels = list(muscle_volume.keys())
         sizes = list(muscle_volume.values())
         explode = [0.1 if i == max(sizes) else 0 for i in sizes]
-        
+
         fig, ax = plt.subplots(figsize=(10, 8))
         ax.pie(sizes, explode=explode, labels=labels, autopct="%1.1f%%", shadow=True, startangle=90)
         ax.axis("equal")
 
-        # Save to graphs directory
         muscle_path = GRAPHS_DIR / "muscle_distribution.png"
         plt.savefig(muscle_path)
         plt.close(fig)
 
         await callback_query.message.answer_photo(photo=FSInputFile(muscle_path))
-        
+
         await state.set_state(StatsForm.choice_type)
         await callback_query.message.answer(
-            "What stats do you want to see?",
+            t("stats_main_menu", lang),
             reply_markup=ReplyKeyboardMarkup(
                 keyboard=[
-                    [KeyboardButton(text="Overall")],
-                    [KeyboardButton(text="Progression")],
+                    [KeyboardButton(text=t("stats_btn_overall", lang))],
+                    [KeyboardButton(text=t("stats_btn_progression", lang))],
                 ],
                 resize_keyboard=True,
             )
@@ -492,15 +523,18 @@ async def workout_selected(callback_query: CallbackQuery, state: FSMContext):
 # Heat Map
 # ============================================================================
 
-@stats_router.message(StatsForm.progression_state, F.text.casefold() == "heat map")
+@stats_router.message(StatsForm.progression_state, F.text.in_(["Heat Map", "Тепловая карта"]))
 async def process_heat_map(message: Message, state: FSMContext):
     """Generate workout frequency heatmap"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     await state.set_state(StatsForm.heat_map_state)
     user_id = message.from_user.id
 
     with SessionLocal() as session:
         workouts = session.query(Workout).filter(Workout.user_id == user_id).all()
-        
+
         heatmap_data = defaultdict(lambda: [0, 0, 0, 0])
         for w in workouts:
             month = w.created_at.month
@@ -521,14 +555,13 @@ async def process_heat_map(message: Message, state: FSMContext):
         plt.title("Workout Frequency per Month/Week")
         plt.xlabel("Week of Month")
         plt.ylabel("Month")
-        
-        # Save to graphs directory
+
         heatmap_path = GRAPHS_DIR / "heatmap.png"
         plt.savefig(heatmap_path)
         plt.close()
 
         photo = FSInputFile(heatmap_path)
-        await message.answer_photo(photo, caption="Your week by week heatmap")
+        await message.answer_photo(photo, caption=t("stats_heatmap_caption", lang))
 
     await state.clear()
 
@@ -537,9 +570,12 @@ async def process_heat_map(message: Message, state: FSMContext):
 # Recommendations
 # ============================================================================
 
-@stats_router.message(StatsForm.choice_type, F.text.casefold() == "get recommendations")
+@stats_router.message(StatsForm.choice_type, F.text.in_(["Recommendations", "Рекомендации"]))
 async def process_recommendations(message: Message, state: FSMContext):
     """Generate training recommendations based on weak points"""
+    data = await state.get_data()
+    lang = data.get('lang', 'en')
+
     await state.set_state(StatsForm.recommendations_state)
     user_id = message.from_user.id
 
@@ -573,7 +609,7 @@ async def process_recommendations(message: Message, state: FSMContext):
     weak_points = []
     num_muscles = len(relative_volumes) if relative_volumes else 0
     expected_percentage = (100 / num_muscles) if num_muscles else 0
-    
+
     for muscle, week_data in relative_volumes.items():
         for week_str, relative_volume in week_data.items():
             if expected_percentage and relative_volume < expected_percentage * 0.7:
@@ -591,10 +627,10 @@ async def process_recommendations(message: Message, state: FSMContext):
             week = wp.get("week")
             rel = wp.get("relative_volume", 0.0)
             deficit = wp.get("deficit", 0.0)
-            lines.append(f"{mg} — week {week}: {rel:.1f}% of weekly volume (deficit {deficit:.1f}%)")
-        message_text = "Weak points detected:\n" + "\n".join(lines)
+            lines.append(t("stats_weak_point", lang, muscle=mg, week=week, volume=f"{rel:.1f}", deficit=f"{deficit:.1f}"))
+        message_text = t("stats_weak_points_detected", lang, points="\n".join(lines))
     else:
-        message_text = "No weak points detected. Great job!"
+        message_text = t("stats_no_weak_points", lang)
 
     await message.answer(message_text)
     await state.set_state(StatsForm.choice_type)
